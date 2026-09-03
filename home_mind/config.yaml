@@ -1,6 +1,6 @@
 ---
 name: Home Mind
-version: "0.16.6"
+version: "0.16.7"
 slug: home_mind
 description: >-
   AI assistant with cognitive memory for Home Assistant. Remembers your
