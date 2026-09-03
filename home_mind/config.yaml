@@ -1,6 +1,6 @@
 ---
 name: Home Mind
-version: "0.16.5"
+version: "0.16.6"
 slug: home_mind
 description: >-
   AI assistant with cognitive memory for Home Assistant. Remembers your
@@ -34,6 +34,7 @@ options:
   anthropic_api_key: ""
   log_level: info
   conversation_storage: sqlite
+  layout_domains: ""
   memory_token_limit: 3000
   memory_cleanup_interval_hours: 6
   stt_provider: none
@@ -52,6 +53,7 @@ schema:
   # Behaviour
   custom_prompt: str?
   device_overrides: str?
+  layout_domains: str?
   memory_token_limit: int(100,)
   memory_cleanup_interval_hours: int(0,)
   conversation_storage: list(sqlite|memory)

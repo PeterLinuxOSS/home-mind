@@ -35,6 +35,13 @@ configuration:
     description: >-
       JSON of per-entity light capability overrides. Use when a light reports
       the wrong colour modes to Home Assistant.
+  layout_domains:
+    name: Home layout domains
+    description: >-
+      Which entity domains appear in the home layout the assistant sees on
+      every request. Leave empty for a sensible default, "all" to include
+      everything, or a comma-separated list. Fewer domains means a much cheaper
+      request; anything left out is still reachable by search.
   memory_token_limit:
     name: Memory token limit
     description: How many tokens of recalled memory may be added to a prompt.

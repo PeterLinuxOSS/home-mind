@@ -6,17 +6,18 @@ ARG SHODH_IMAGE=varunshodh/shodh-memory:0.2.0
 # embedding/NER models. Taken from the same image docker-compose.yml uses.
 FROM ${SHODH_IMAGE} AS shodh
 
-# Build the Home Mind server from a pinned upstream tag. The add-on build
-# context is the add-on folder, so the source is fetched rather than copied.
+# Build the Home Mind server from a pinned tag. The add-on build context is
+# the add-on folder, so the source is fetched rather than copied.
 FROM node:20-bookworm-slim AS builder
-# Upstream tag the server is built from. Bump with `version` in config.yaml.
-ARG HOME_MIND_REF=v0.16.5
+# Source the server is built from. Bump with `version` in config.yaml.
+ARG HOME_MIND_REPO=PeterLinuxOSS/home-mind
+ARG HOME_MIND_REF=layout-filter-1
 RUN apt-get update \
     && apt-get install -y --no-install-recommends ca-certificates curl python3 make g++ \
     && rm -rf /var/lib/apt/lists/*
 WORKDIR /opt/home-mind
-RUN curl -fsSL "https://codeload.github.com/hoornet/home-mind/tar.gz/refs/tags/${HOME_MIND_REF}" \
-    | tar -xz --strip-components=3 "home-mind-${HOME_MIND_REF#v}/src/home-mind-server"
+RUN curl -fsSL "https://codeload.github.com/${HOME_MIND_REPO}/tar.gz/refs/tags/${HOME_MIND_REF}" \
+    | tar -xz --strip-components=3 --wildcards "*/src/home-mind-server"
 RUN npm ci \
     && npm run build \
     && npm prune --omit=dev \

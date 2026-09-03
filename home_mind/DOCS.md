@@ -60,6 +60,7 @@ Finally set Home Mind as the conversation agent under
 |---|---|---|
 | `custom_prompt` | — | Extra system prompt. Gives the assistant a name and personality. |
 | `device_overrides` | — | JSON of per-entity light capability overrides, e.g. `{"light.kitchen": {"whiteMethod": "rgb_white"}}`. Use when a light reports the wrong colour modes. |
+| `layout_domains` | — | Entity domains listed in the home layout that is sent with **every** request. Empty uses a default that keeps controllable domains plus `sensor`/`binary_sensor`; `all` includes everything; a comma-separated list overrides it. On a large home this is the single biggest cost lever — see below. |
 | `memory_token_limit` | `3000` | Maximum tokens of recalled memory injected into a prompt. |
 | `memory_cleanup_interval_hours` | `6` | How often faded memories are pruned. `0` disables it. |
 | `conversation_storage` | `sqlite` | `sqlite` keeps conversation history across restarts in `/data`, `memory` forgets it. |
@@ -92,6 +93,25 @@ long-lived access token is needed**.
 
 Set `ha_url` and `ha_token` only to control a *different* Home Assistant.
 `ha_skip_tls_verify` allows self-signed certificates on that instance.
+
+### Why `layout_domains` matters
+
+The assistant is told the layout of your home — floor, room, and the entities in
+each room — on **every** request, so the model knows where a device is without
+asking. Home Assistant's `area_entities()` returns *everything* in a room,
+though, and on a large install most of that is `button`, `update`, `number`,
+and `select` entities no one ever asks a voice assistant about.
+
+Measured on a 1,631-entity home: the unfiltered layout is **23,301 tokens**,
+about two thirds of the entire request. The default filter brings it to
+**14,570**; restricting it to controllable domains only
+(`light,switch,cover,climate,media_player,fan,lock,script,scene`) brings it to
+**4,114** and roughly halves the cost of every command.
+
+Nothing is lost by filtering — entities left out are still reachable through the
+assistant's search tools. It just costs a tool call on the requests that need
+one instead of prompt tokens on all of them. Start with the default; narrow it
+if cost matters more than answering sensor questions without a lookup.
 
 ## Data and ports
 
