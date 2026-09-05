@@ -11,7 +11,11 @@ const LAYOUT_TEMPLATE = `
 {%- for fid in floors() -%}
   {%- set ans = namespace(areas=[]) -%}
   {%- for aid in floor_areas(fid) -%}
-    {%- set ans.areas = ans.areas + [{"id": aid, "name": area_name(aid), "entities": area_entities(aid) | list}] -%}
+    {%- set es = namespace(list=[]) -%}
+    {%- for eid in area_entities(aid) -%}
+      {%- set es.list = es.list + [{"id": eid, "name": state_attr(eid, "friendly_name")}] -%}
+    {%- endfor -%}
+    {%- set ans.areas = ans.areas + [{"id": aid, "name": area_name(aid), "entities": es.list}] -%}
     {%- set ns.assigned = ns.assigned + [aid] -%}
   {%- endfor -%}
   {%- set ns.floors = ns.floors + [{"id": fid, "name": floor_name(fid), "areas": ans.areas}] -%}
@@ -19,16 +23,36 @@ const LAYOUT_TEMPLATE = `
 {%- set orphans = namespace(areas=[]) -%}
 {%- for aid in areas() -%}
   {%- if aid not in ns.assigned -%}
-    {%- set orphans.areas = orphans.areas + [{"id": aid, "name": area_name(aid), "entities": area_entities(aid) | list}] -%}
+    {%- set es = namespace(list=[]) -%}
+    {%- for eid in area_entities(aid) -%}
+      {%- set es.list = es.list + [{"id": eid, "name": state_attr(eid, "friendly_name")}] -%}
+    {%- endfor -%}
+    {%- set orphans.areas = orphans.areas + [{"id": aid, "name": area_name(aid), "entities": es.list}] -%}
   {%- endif -%}
 {%- endfor -%}
 {{ {"floors": ns.floors, "unassigned": orphans.areas} | tojson }}
 `.trim();
 
+/** One entity in a room. `name` is null when Home Assistant has none. */
+interface EntityRef {
+  id: string;
+  name: string | null;
+}
+
+/**
+ * How an entity appears in the layout. The id is what a tool call needs; the
+ * name is the only thing tying it to the words a user actually says —
+ * `switch.flush_1d_relay` is a garage door in exactly one house, and nothing
+ * in the id says so.
+ */
+function entityLabel(entity: EntityRef): string {
+  return entity.name ? `${entity.id} (${entity.name})` : entity.id;
+}
+
 interface AreaData {
   id: string;
   name: string;
-  entities: string[];
+  entities: EntityRef[];
 }
 
 interface FloorData {
@@ -113,7 +137,10 @@ export class TopologyScanner {
       lines.push(`**${floor.name}**`);
       for (const area of floor.areas.sort((a, b) => a.name.localeCompare(b.name))) {
         if (area.entities.length === 0) continue;
-        const entityList = area.entities.sort().join(", ");
+        const entityList = area.entities
+          .sort((x, y) => x.id.localeCompare(y.id))
+          .map(entityLabel)
+          .join(", ");
         lines.push(`- ${area.name}: ${entityList}`);
       }
       lines.push("");
@@ -123,7 +150,10 @@ export class TopologyScanner {
       lines.push("**Other rooms (no floor assigned)**");
       for (const area of data.unassigned.sort((a, b) => a.name.localeCompare(b.name))) {
         if (area.entities.length === 0) continue;
-        const entityList = area.entities.sort().join(", ");
+        const entityList = area.entities
+          .sort((x, y) => x.id.localeCompare(y.id))
+          .map(entityLabel)
+          .join(", ");
         lines.push(`- ${area.name}: ${entityList}`);
       }
       lines.push("");
