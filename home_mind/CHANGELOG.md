@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.16.8
+
+Server built from `voice-fixes-1`.
+
+- The home layout now names every entity — `switch.flush_1d_relay (Garaz
+  Dvere)` instead of the bare id, which said nothing about a garage door.
+- `search_entities` folds accents on both sides, so a query in the user's own
+  language matches an entity id slugged to ASCII.
+
 ## 0.16.5
 
 First release of the Home Assistant add-on. Packages Home Mind server 0.16.5
