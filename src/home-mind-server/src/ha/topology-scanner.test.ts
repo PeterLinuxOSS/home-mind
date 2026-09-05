@@ -14,19 +14,28 @@ const LAYOUT = {
           id: "kitchen",
           name: "Kitchen",
           entities: [
-            "light.kitchen",
-            "sensor.kitchen_temperature",
-            "button.kitchen_identify",
-            "update.kitchen_firmware",
-            "number.kitchen_transition",
-            "select.kitchen_power_on_behaviour",
+            { id: "light.kitchen", name: "Kitchen light" },
+            { id: "sensor.kitchen_temperature", name: "Kitchen temperature" },
+            { id: "button.kitchen_identify", name: "Kitchen identify" },
+            { id: "update.kitchen_firmware", name: "Kitchen firmware" },
+            { id: "number.kitchen_transition", name: "Kitchen transition" },
+            { id: "select.kitchen_power_on_behaviour", name: "Kitchen power-on behaviour" },
           ],
         },
       ],
     },
   ],
   unassigned: [
-    { id: "garage", name: "Garage", entities: ["cover.garage_door", "event.garage_button"] },
+    {
+      id: "garage",
+      name: "Garage",
+      entities: [
+        // Accented name over an unaccented id, and a null name — the case Home
+        // Assistant leaves when nothing has ever set one.
+        { id: "cover.garage_door", name: "Garážová brána" },
+        { id: "event.garage_button", name: null },
+      ],
+    },
   ],
 };
 
@@ -174,5 +183,25 @@ describe("TopologyScanner layout filtering", () => {
     await scanner.scan();
 
     expect(scanner.formatSection()).toBe(good);
+  });
+});
+
+describe("TopologyScanner layout naming", () => {
+  it("names every entity, so the model can map a spoken device to an id", async () => {
+    const scanner = new TopologyScanner(makeHa());
+    await scanner.scan();
+
+    // Without the name, "cover.garage_door" is guessable but "light.kitchen"
+    // only looks obvious because the installer slugged it from the name.
+    expect(scanner.formatSection()).toContain("light.kitchen (Kitchen light)");
+    expect(scanner.formatSection()).toContain("cover.garage_door (Garážová brána)");
+  });
+
+  it("falls back to the bare id when Home Assistant has no friendly name", async () => {
+    const scanner = new TopologyScanner(makeHa(), 30 * 60 * 1000, null);
+    await scanner.scan();
+
+    expect(scanner.formatSection()).toContain("event.garage_button");
+    expect(scanner.formatSection()).not.toContain("event.garage_button (");
   });
 });

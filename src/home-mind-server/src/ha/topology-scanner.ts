@@ -11,7 +11,11 @@ const LAYOUT_TEMPLATE = `
 {%- for fid in floors() -%}
   {%- set ans = namespace(areas=[]) -%}
   {%- for aid in floor_areas(fid) -%}
-    {%- set ans.areas = ans.areas + [{"id": aid, "name": area_name(aid), "entities": area_entities(aid) | list}] -%}
+    {%- set es = namespace(list=[]) -%}
+    {%- for eid in area_entities(aid) -%}
+      {%- set es.list = es.list + [{"id": eid, "name": state_attr(eid, "friendly_name")}] -%}
+    {%- endfor -%}
+    {%- set ans.areas = ans.areas + [{"id": aid, "name": area_name(aid), "entities": es.list}] -%}
     {%- set ns.assigned = ns.assigned + [aid] -%}
   {%- endfor -%}
   {%- set ns.floors = ns.floors + [{"id": fid, "name": floor_name(fid), "areas": ans.areas}] -%}
@@ -19,7 +23,11 @@ const LAYOUT_TEMPLATE = `
 {%- set orphans = namespace(areas=[]) -%}
 {%- for aid in areas() -%}
   {%- if aid not in ns.assigned -%}
-    {%- set orphans.areas = orphans.areas + [{"id": aid, "name": area_name(aid), "entities": area_entities(aid) | list}] -%}
+    {%- set es = namespace(list=[]) -%}
+    {%- for eid in area_entities(aid) -%}
+      {%- set es.list = es.list + [{"id": eid, "name": state_attr(eid, "friendly_name")}] -%}
+    {%- endfor -%}
+    {%- set orphans.areas = orphans.areas + [{"id": aid, "name": area_name(aid), "entities": es.list}] -%}
   {%- endif -%}
 {%- endfor -%}
 {{ {"floors": ns.floors, "unassigned": orphans.areas} | tojson }}
@@ -59,10 +67,26 @@ export const DEFAULT_LAYOUT_DOMAINS = [
   "binary_sensor", "camera", "device_tracker", "person", "sensor", "timer", "weather",
 ] as const;
 
+/** One entity in a room. `name` is null when Home Assistant has none. */
+interface EntityRef {
+  id: string;
+  name: string | null;
+}
+
+/**
+ * How an entity appears in the layout. The id is what a tool call needs; the
+ * name is the only thing tying it to the words a user actually says —
+ * `switch.flush_1d_relay` is a garage door in exactly one house, and nothing
+ * in the id says so.
+ */
+function entityLabel(entity: EntityRef): string {
+  return entity.name ? `${entity.id} (${entity.name})` : entity.id;
+}
+
 interface AreaData {
   id: string;
   name: string;
-  entities: string[];
+  entities: EntityRef[];
 }
 
 interface FloorData {
@@ -154,7 +178,7 @@ export class TopologyScanner {
       const floorCount = data.floors.length;
       const areas = [...data.floors.flatMap((f) => f.areas), ...data.unassigned];
       const total = areas.reduce((n, a) => n + a.entities.length, 0);
-      const kept = areas.reduce((n, a) => n + a.entities.filter((e) => this.keep(e)).length, 0);
+      const kept = areas.reduce((n, a) => n + a.entities.filter((e) => this.keep(e.id)).length, 0);
       // The layout ships in every system prompt, so its size is a running cost.
       const dropped = kept === total ? "" : ` (${total - kept} dropped, ${this.filterName()})`;
       console.log(
@@ -186,9 +210,15 @@ export class TopologyScanner {
   private roomLines(areas: AreaData[]): string[] {
     return areas
       .sort((a, b) => a.name.localeCompare(b.name))
-      .map((area) => ({ name: area.name, entities: area.entities.filter((e) => this.keep(e)) }))
+      .map((area) => ({ name: area.name, entities: area.entities.filter((e) => this.keep(e.id)) }))
       .filter((area) => area.entities.length > 0)
-      .map((area) => `- ${area.name}: ${area.entities.sort().join(", ")}`);
+      .map(
+        (area) =>
+          `- ${area.name}: ${area.entities
+            .sort((x, y) => x.id.localeCompare(y.id))
+            .map(entityLabel)
+            .join(", ")}`
+      );
   }
 
   private buildLayout(data: LayoutData): string {
