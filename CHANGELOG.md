@@ -2,6 +2,11 @@
 
 All notable changes to Home Mind are documented here.
 
+## [0.18.1] - 2026-09-10
+
+### Fixed (ha/topology-scanner.ts)
+- **Large homes get a layout again.** On an install with several thousand entities every topology scan failed with `Template output exceeded maximum size of 262144 characters`, so the assistant had no idea which room anything was in (#34: 9059 entities rendered about 283 KB against Home Assistant's 256 KB cap). The layout was fetched with a single template that asked each area for its complete entity list, and the domain filter that would have trimmed it ran afterwards, in TypeScript, where it could not help a render that had already failed. The filter now runs inside the template, and the layout is fetched in two steps — the shape of the home, then entities for a batch of areas — with the batch halved whenever a render still comes back too big. Filtering alone would have left that house only 27% under the cap; batching is what makes it safe at any size. An area too large to render on its own is skipped with a warning instead of costing the whole layout. When entities are exposed to Assist, the in-template filter uses the domains present in that list rather than the defaults, so an exposed entity outside the default domains is not dropped before the exact filter sees it.
+
 ## [0.18.0] - 2026-09-04
 
 ### Fixed (llm/history-summary.ts, llm/tool-handler.ts, ha/client.ts)
