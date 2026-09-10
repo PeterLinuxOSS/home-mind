@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.18.1
+
+- **Large homes get their rooms back.** If you have a few thousand entities, the add-on could not read your home's layout at all — the log said `Template output exceeded maximum size of 262144 characters` — so the assistant did not know which room anything was in. It now reads the layout in smaller pieces, and asks Home Assistant only for the kinds of entity it actually uses, so it works however large your home is. Thanks to @mdallaire for the report. Server 0.18.1.
+
 ## 0.18.0
 
 - **Trend questions now see every reading.** Asking about a week of a sensor used to give the assistant a thin sample of the data, one reading per 50 minutes, so a short daily spike could vanish entirely. It now gets hourly summaries that cover every reading, at a lower cost than before.
