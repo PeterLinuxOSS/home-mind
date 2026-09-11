@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.18.2
+
+- **Security fix.** A crafted request could tie the add-on's server up completely and stop it answering anything, using nothing but a malformed upload field name. The upload endpoint now rejects those, and the underlying library is updated. Worth updating if your Home Assistant is reachable from outside your network. Server 0.18.2.
+
 ## 0.18.1
 
 - **Large homes get their rooms back.** If you have a few thousand entities, the add-on could not read your home's layout at all — the log said `Template output exceeded maximum size of 262144 characters` — so the assistant did not know which room anything was in. It now reads the layout in smaller pieces, and asks Home Assistant only for the kinds of entity it actually uses, so it works however large your home is. Thanks to @mdallaire for the report. Server 0.18.1.
