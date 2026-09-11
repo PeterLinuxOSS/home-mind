@@ -2,6 +2,12 @@
 
 All notable changes to Home Mind are documented here.
 
+## [0.18.2] - 2026-09-11
+
+### Security (api/routes.ts, deps)
+- **Closes GHSA-535w-7cp7-47q4, a denial of service through multipart field names.** A single request with a field name such as `items[4294967294]` made `append-field` allocate a maximum-length sparse array, and a second field on the same base then converted it by walking the whole length — synchronously, so the process stopped answering anything else. The affected endpoint is `POST /api/stt`, which is behind the API token when one is configured and open when one is not. multer goes to 2.3.0, **and** `fieldArrayIndexLimit` is now set: the upgrade alone fixes nothing, because multer defaults that option to `Infinity` and only enforces it when the key is explicitly present. It is set to `0`, since this endpoint carries `audio` and `language` and no field name it accepts contains a bracket. The limit is exported and exercised against real multer in a test, because the option reads as redundant next to the dependency bump and removing it would reopen the hole with no visible symptom.
+- vitest and @vitest/coverage-v8 go to 4.1.11, clearing two moderate advisories in `@vitest/mocker`.
+
 ## [0.18.1] - 2026-09-10
 
 ### Fixed (ha/topology-scanner.ts)
