@@ -194,7 +194,7 @@ Optional bearer token auth via `API_TOKEN` env var. When set, all endpoints exce
 
 Docker Compose (root `docker-compose.yml`) runs two services: `shodh` (memory backend, port 3030) and `server` (API, port 3100). Server depends on Shodh healthcheck.
 
-**Shodh Docker**: Thin wrapper around the official `varunshodh/shodh-memory:latest` image. The wrapper (`docker/shodh/Dockerfile`) adds a custom entrypoint for volume permission migration. No more manual binary/library copying needed. `deploy.sh` auto-generates `SHODH_API_KEY` via `openssl rand -hex 32` if not set.
+**Shodh Docker**: Thin wrapper around the official `varunshodh/shodh-memory` image, pinned by tag and digest. The wrapper (`docker/shodh/Dockerfile`) adds a custom entrypoint for volume permission migration. No more manual binary/library copying needed. `deploy.sh` auto-generates `SHODH_API_KEY` via `openssl rand -hex 32` if not set.
 
 HA custom component installed via HACS from `https://github.com/hoornet/home-mind-hacs` or manually copied to `/config/custom_components/home_mind/`.
 
