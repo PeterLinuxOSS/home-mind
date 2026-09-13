@@ -2,6 +2,19 @@
 
 All notable changes to Home Mind are documented here.
 
+## [0.19.0] - 2026-09-13
+
+### Changed (ha/exposure.ts, ha/client.ts, index.ts, config.ts)
+- **The assistant now sees and drives only what you exposed to Assist — the tools, not just the prompt.** Since 0.17.0 the home layout has been built from the entities you picked under Settings, Voice assistants. The tools were not: `get_state`, `get_entities`, `search_entities`, `get_history` and `call_service` went straight to `/api/states`, which returns every entity in the house. Ask "what do you see in the kitchen" on a 7,600-entity home that has exposed 130, and the model would list hidden lights, a presence sensor and a relay the user had deliberately kept out of Assist — and could switch them. Home Assistant's own agent has never worked this way: `async_should_expose` filters the state machine once, and both the prompt and the live-context tool are built from the survivors, so an entity you did not expose does not exist for the assistant. Home Mind now reads that list once per scan interval and hands the same copy to the layout and to the Home Assistant client.
+
+  A read for an unexposed entity comes back as a message telling the model it is out of scope and not to retry with another spelling. A write is refused before the request leaves, for the entity named in the call and for any handed in through `data.entity_id` — a model told one door is shut will otherwise try the other. Area and label targets are not resolved, so those remain as wide as your token allows.
+
+  **A list that cannot be read is not the same as a list that is empty.** An older Home Assistant, a token without websocket access, a network error, or a home that has never opened that settings page all mean "no opinion", and nothing is filtered — an assistant blinded to the whole house by one failed websocket call would be far worse than the leak it closes. A refresh that fails mid-session keeps the last good list instead of widening.
+
+  The light capability cheat sheet follows the same list, since it describes the lights the model is able to drive; on a large home that makes it smaller too.
+
+  `TOOLS_FROM_EXPOSED=false` restores the previous behaviour. If you relied on the assistant reaching something you never exposed, expose it (Settings → Voice assistants → Expose) or set that variable.
+
 ## [0.18.2] - 2026-09-11
 
 ### Security (api/routes.ts, deps)
