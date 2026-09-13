@@ -1,4 +1,5 @@
 import type { Config } from "../config.js";
+import { AssistExposure, notExposedMessage } from "./exposure.js";
 
 export interface EntityState {
   entity_id: string;
@@ -33,6 +34,13 @@ export function foldAccents(text: string): string {
     .toLowerCase();
 }
 
+/** The entity IDs a service call targets; HA accepts one or a list. */
+function targetedEntities(target: unknown): string[] {
+  if (typeof target === "string") return [target];
+  if (Array.isArray(target)) return target.filter((t): t is string => typeof t === "string");
+  return [];
+}
+
 export class HomeAssistantClient {
   private baseUrl: string;
   private token: string;
@@ -43,10 +51,33 @@ export class HomeAssistantClient {
   private allStatesCache: CacheEntry<EntityState[]> | null = null;
   private entityCache: Map<string, CacheEntry<EntityState>> = new Map();
 
-  constructor(config: Config) {
+  /**
+   * @param exposure The entities the user exposed to Assist. When given, it
+   *   bounds everything the tools can read and drive — the same bound Home
+   *   Assistant's own agent puts on its tools. Omitted (or reporting "no
+   *   opinion") leaves the client unfiltered.
+   */
+  constructor(
+    config: Config,
+    private readonly exposure?: AssistExposure
+  ) {
     this.baseUrl = config.haUrl.replace(/\/$/, "");
     this.token = config.haToken;
     this.skipTlsVerify = config.haSkipTlsVerify;
+  }
+
+  /**
+   * Refuses an entity the user has not exposed, before any request is made.
+   *
+   * Throwing beats returning an empty result: the tool handler turns it into a
+   * message the model reads, so "not exposed" is said out loud instead of
+   * looking like a device that is missing or broken.
+   */
+  private async requireExposed(...entityIds: string[]): Promise<void> {
+    if (!this.exposure) return;
+    for (const id of entityIds) {
+      if (!(await this.exposure.allows(id))) throw new Error(notExposedMessage(id));
+    }
   }
 
   /**
@@ -153,6 +184,8 @@ export class HomeAssistantClient {
    * Get state of a single entity (cached)
    */
   async getState(entityId: string): Promise<EntityState> {
+    await this.requireExposed(entityId);
+
     // Check individual cache first
     const cached = this.entityCache.get(entityId);
     if (this.isCacheValid(cached)) {
@@ -175,13 +208,19 @@ export class HomeAssistantClient {
    * Get all entities, optionally filtered by domain (cached)
    */
   async getEntities(domain?: string): Promise<EntityState[]> {
-    const states = await this.getAllStatesCached();
+    const states = await this.visibleStates();
 
     if (domain) {
       return states.filter((s) => s.entity_id.startsWith(`${domain}.`));
     }
 
     return states;
+  }
+
+  /** Every state the assistant may see — all of them when nothing is exposed. */
+  private async visibleStates(): Promise<EntityState[]> {
+    const states = await this.getAllStatesCached();
+    return this.exposure ? this.exposure.filter(states) : states;
   }
 
   /**
@@ -196,7 +235,7 @@ export class HomeAssistantClient {
   async searchEntities(query: string): Promise<EntityState[]> {
     const needle = foldAccents(query);
 
-    const states = await this.getAllStatesCached();
+    const states = await this.visibleStates();
     return states.filter((s) => {
       const name = (s.attributes.friendly_name as string) || "";
       return (
@@ -219,6 +258,12 @@ export class HomeAssistantClient {
     if (entityId) {
       payload.entity_id = entityId;
     }
+
+    // Every entity this call would touch, whether named in `entityId` or
+    // handed in through `data` — a model that has been told an entity is out of
+    // scope will otherwise try the other door. Area and label targets are not
+    // resolved here, so they are still as wide as the token allows.
+    await this.requireExposed(...targetedEntities(payload.entity_id));
 
     const result = await this.fetch<EntityState[]>(`/api/services/${domain}/${service}`, {
       method: "POST",
@@ -250,6 +295,8 @@ export class HomeAssistantClient {
     startTime?: string,
     endTime?: string
   ): Promise<HistoryEntry[]> {
+    await this.requireExposed(entityId);
+
     const start = startTime || new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
     // URL-encode every interpolated value. The `+` in `+HH:MM` tz offsets is
     // otherwise decoded as a space in query strings by aiohttp (HA's HTTP
