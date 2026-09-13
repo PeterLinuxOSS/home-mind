@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.16.9
+
+Server built from `voice-fixes-2`.
+
+- The assistant now sees and controls only the entities you exposed under
+  Settings, Voice assistants — the tools, not just the prompt it is sent.
+  The layout has honoured that list since 0.16.7, but `search_entities`,
+  `get_state`, `get_entities`, `get_history` and `call_service` went
+  straight to the states API and returned every entity in the house, so
+  asking what it could see in a room listed hidden lights and sensors you
+  had deliberately kept out of Assist. This is how Home Assistant's own
+  conversation agent has always worked.
+- Anything you want the assistant to know about must now be exposed. If it
+  says something is "not available", expose it and ask again.
+- `TOOLS_FROM_EXPOSED=false` restores the old reach.
+
 ## 0.16.8
 
 Server built from `voice-fixes-1`.

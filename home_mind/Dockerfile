@@ -11,7 +11,7 @@ FROM ${SHODH_IMAGE} AS shodh
 FROM node:20-bookworm-slim AS builder
 # Source the server is built from. Bump with `version` in config.yaml.
 ARG HOME_MIND_REPO=PeterLinuxOSS/home-mind
-ARG HOME_MIND_REF=voice-fixes-1
+ARG HOME_MIND_REF=voice-fixes-2
 RUN apt-get update \
     && apt-get install -y --no-install-recommends ca-certificates curl python3 make g++ \
     && rm -rf /var/lib/apt/lists/*
