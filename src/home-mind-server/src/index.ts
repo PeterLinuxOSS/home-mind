@@ -14,6 +14,7 @@ import { HomeAssistantClient } from "./ha/client.js";
 import { DeviceScanner } from "./ha/device-scanner.js";
 import { DEFAULT_LAYOUT_DOMAINS, TopologyScanner } from "./ha/topology-scanner.js";
 import { fetchExposedEntities } from "./ha/exposed-entities.js";
+import { AssistExposure } from "./ha/exposure.js";
 import { createChatEngine, createFactExtractor } from "./llm/factory.js";
 import { createRouter } from "./api/routes.js";
 import { createSttService } from "./stt/stt-service.js";
@@ -49,8 +50,17 @@ console.log(`  ✓ Conversation store: ${config.conversationStorage}`);
 const extractor = createFactExtractor(config);
 console.log(`  Fact extractor: ${config.llmProvider}/${config.llmModel}`);
 
-const ha = new HomeAssistantClient(config);
+// One reading of "what may the assistant see", shared by the prompt and the
+// tools — Home Assistant filters both from the same list, and when the two
+// disagreed the layout honoured the user's choices while `search_entities`
+// returned every entity in the house.
+const exposure = new AssistExposure(() => fetchExposedEntities(config.haUrl, config.haToken));
+
+const ha = new HomeAssistantClient(config, config.toolsFromExposed ? exposure : undefined);
 console.log(`  Home Assistant: ${config.haUrl}`);
+console.log(
+  `  Tools: ${config.toolsFromExposed ? "limited to the entities exposed to Assist" : "the whole house (TOOLS_FROM_EXPOSED=false)"}`
+);
 
 let deviceOverrides = {};
 if (config.deviceOverrides) {
@@ -73,9 +83,7 @@ const layoutDomains =
 // The entities the user exposed to Assist are Home Assistant's own answer to
 // "what should the assistant see", so prefer them over the domain heuristic.
 // Reading them needs the websocket API; when that fails the domains apply.
-const exposureProvider = config.layoutFromExposed
-  ? () => fetchExposedEntities(config.haUrl, config.haToken)
-  : null;
+const exposureProvider = config.layoutFromExposed ? () => exposure.list() : null;
 const topology = new TopologyScanner(ha, 30 * 60 * 1000, layoutDomains, exposureProvider);
 await Promise.all([scanner.scan(), topology.scan()]);
 console.log(`  ✓ Device scanner: ${scanner.getProfiles().length} light profiles loaded`);

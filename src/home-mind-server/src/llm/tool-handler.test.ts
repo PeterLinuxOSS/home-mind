@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { handleToolCall, extractAndStoreFacts, filterExtractedFacts, normalizeTimestamp, type ToolContext } from "./tool-handler.js";
 import { clearConversation } from "./forget-confirmations.js";
 import type { HomeAssistantClient } from "../ha/client.js";
+import { notExposedMessage } from "../ha/exposure.js";
 import type { IMemoryStore } from "../memory/interface.js";
 import type { IFactExtractor } from "./interface.js";
 import type { ExtractedFact } from "../memory/types.js";
@@ -117,6 +118,21 @@ describe("handleToolCall", () => {
     });
 
     expect(result).toEqual({ error: "string error" });
+  });
+
+  it("hands the model the reason an unexposed entity was refused", async () => {
+    // The client refuses before the request goes out; this is the contract that
+    // the refusal reaches the model as words instead of failing the turn.
+    (ha.getState as ReturnType<typeof vi.fn>).mockRejectedValue(
+      new Error(notExposedMessage("light.kitchen_table_1"))
+    );
+
+    const result = await handleToolCall(ha, "get_state", {
+      entity_id: "light.kitchen_table_1",
+    });
+
+    expect(result).toEqual({ error: expect.stringContaining("not available to you") });
+    expect(result).toEqual({ error: expect.stringContaining("Do not retry") });
   });
 });
 
