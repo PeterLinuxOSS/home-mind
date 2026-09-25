@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.17.0
+
+Server built from `gemini-1`.
+
+- New `gemini` provider: Google's Gemini models through their
+  OpenAI-compatible API. Set `llm_provider: gemini` and `gemini_api_key`;
+  pick the model in the new `gemini_model` dropdown (default
+  `gemini-3.5-flash-lite`, the fastest). A model typed in `llm_model` wins.
+- Tool calls keep the provider's `extra_content` for the follow-up turn.
+  Gemini 3 attaches its thought signature there and rejects the next
+  request without it.
+- New `reasoning_effort` option, passed to OpenAI-compatible providers.
+
 ## 0.16.9
 
 Server built from `voice-fixes-2`.

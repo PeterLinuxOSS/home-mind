@@ -24,6 +24,10 @@ case "$(bashio::config 'llm_provider')" in
         bashio::config.require 'openai_api_key' \
             "The OpenAI provider needs an API key from https://platform.openai.com/"
         ;;
+    gemini)
+        bashio::config.require 'gemini_api_key' \
+            "The Gemini provider needs an API key from https://aistudio.google.com/apikey"
+        ;;
     ollama)
         bashio::config.require 'ollama_base_url' \
             "The Ollama provider needs the base URL of your Ollama server, for example http://192.168.1.10:11434/v1"
@@ -66,7 +70,13 @@ export STT_PROVIDER="$(bashio::config 'stt_provider')"
 export TTS_PROVIDER="$(bashio::config 'tts_provider')"
 
 export_option 'llm_model' 'LLM_MODEL'
+# The Gemini dropdown applies only when no free-text model overrides it.
+if [[ "${LLM_PROVIDER}" == "gemini" ]] && ! bashio::config.has_value 'llm_model'; then
+    export_option 'gemini_model' 'LLM_MODEL'
+fi
 export_option 'anthropic_api_key' 'ANTHROPIC_API_KEY'
+export_option 'gemini_api_key' 'GEMINI_API_KEY'
+export_option 'reasoning_effort' 'REASONING_EFFORT'
 export_option 'openai_api_key' 'OPENAI_API_KEY'
 export_option 'openai_base_url' 'OPENAI_BASE_URL'
 export_option 'openai_max_tokens' 'OPENAI_MAX_TOKENS'

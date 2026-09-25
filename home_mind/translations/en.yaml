@@ -3,14 +3,27 @@ configuration:
   llm_provider:
     name: LLM provider
     description: >-
-      Which model answers. Anthropic is Claude, Ollama runs locally on your own
-      hardware.
+      Which model answers. Anthropic is Claude, Gemini is Google, Ollama runs
+      locally on your own hardware.
   llm_model:
     name: Model
     description: Model name. Leave empty to use the provider's default.
   anthropic_api_key:
     name: Anthropic API key
     description: Required for the Anthropic provider. Create one at console.anthropic.com.
+  gemini_api_key:
+    name: Gemini API key
+    description: Required for the Gemini provider. Create one at aistudio.google.com/apikey.
+  gemini_model:
+    name: Gemini model
+    description: >-
+      Model for the Gemini provider. 3.5 Flash-Lite answers fastest, 3.8 Flash
+      is the smartest. A model typed under Model takes precedence.
+  reasoning_effort:
+    name: Reasoning effort
+    description: >-
+      Thinking budget for reasoning models (Gemini 3, GPT-5). Lower is faster
+      and cheaper (Gemini 3.8 Flash rejects minimal); empty uses the model's own default. Not used by Anthropic.
   openai_api_key:
     name: OpenAI API key
     description: Required for the OpenAI provider.

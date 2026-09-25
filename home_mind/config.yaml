@@ -1,6 +1,6 @@
 ---
 name: Home Mind
-version: "0.16.9"
+version: "0.17.0"
 slug: home_mind
 description: >-
   AI assistant with cognitive memory for Home Assistant. Remembers your
@@ -32,6 +32,7 @@ watchdog: http://[HOST]:[PORT:3100]/api/health
 options:
   llm_provider: anthropic
   anthropic_api_key: ""
+  gemini_model: gemini-3.5-flash-lite
   log_level: info
   conversation_storage: sqlite
   layout_domains: ""
@@ -43,9 +44,12 @@ options:
   tts_voice: alloy
 schema:
   # LLM provider
-  llm_provider: list(anthropic|openai|ollama)
+  llm_provider: list(anthropic|openai|ollama|gemini)
   llm_model: str?
   anthropic_api_key: password?
+  gemini_api_key: password?
+  gemini_model: list(gemini-3.5-flash-lite|gemini-3.5-flash|gemini-3.6-flash|gemini-3.7-flash|gemini-3.8-flash)?
+  reasoning_effort: list(none|minimal|low|medium|high)?
   openai_api_key: password?
   openai_base_url: url?
   openai_max_tokens: int(1,)?
