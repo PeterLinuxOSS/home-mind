@@ -22,6 +22,8 @@ describe("loadConfig", () => {
     delete process.env.OPENAI_API_KEY;
     delete process.env.OPENAI_BASE_URL;
     delete process.env.OLLAMA_BASE_URL;
+    delete process.env.GEMINI_API_KEY;
+    delete process.env.REASONING_EFFORT;
     delete process.env.HA_URL;
     delete process.env.HA_TOKEN;
     delete process.env.HA_SKIP_TLS_VERIFY;
@@ -245,5 +247,45 @@ describe("loadConfig", () => {
     const config = await loadConfigFresh();
 
     expect(config.ollamaBaseUrl).toBeUndefined();
+  });
+
+  it("requires GEMINI_API_KEY for the gemini provider", async () => {
+    Object.assign(process.env, BASE_ENV);
+    process.env.LLM_PROVIDER = "gemini";
+    const exit = vi.spyOn(process, "exit").mockImplementation((() => {
+      throw new Error("exit");
+    }) as never);
+    vi.spyOn(console, "error").mockImplementation(() => {});
+
+    await expect(loadConfigFresh()).rejects.toThrow("exit");
+    expect(exit).toHaveBeenCalledWith(1);
+  });
+
+  it("defaults the gemini model to gemini-3.5-flash-lite", async () => {
+    Object.assign(process.env, BASE_ENV);
+    process.env.LLM_PROVIDER = "gemini";
+    process.env.GEMINI_API_KEY = "test-gemini-key";
+
+    const config = await loadConfigFresh();
+
+    expect(config.llmModel).toBe("gemini-3.5-flash-lite");
+    expect(config.geminiApiKey).toBe("test-gemini-key");
+  });
+
+  it("keeps the claude default model for anthropic", async () => {
+    Object.assign(process.env, BASE_ENV);
+
+    const config = await loadConfigFresh();
+
+    expect(config.llmModel).toBe("claude-haiku-4-5-20251001");
+  });
+
+  it("reads REASONING_EFFORT", async () => {
+    Object.assign(process.env, BASE_ENV);
+    process.env.REASONING_EFFORT = "low";
+
+    const config = await loadConfigFresh();
+
+    expect(config.reasoningEffort).toBe("low");
   });
 });

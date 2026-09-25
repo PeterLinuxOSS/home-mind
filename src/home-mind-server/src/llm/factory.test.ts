@@ -44,7 +44,7 @@ vi.mock("../memory/openai-extractor.js", () => ({
   },
 }));
 
-import { createChatEngine, createFactExtractor } from "./factory.js";
+import { createChatEngine, createFactExtractor, GEMINI_BASE_URL } from "./factory.js";
 import { LLMClient } from "./client.js";
 import { OpenAIChatEngine } from "./openai-client.js";
 import { FactExtractor } from "../memory/extractor.js";
@@ -188,6 +188,7 @@ describe("createFactExtractor", () => {
       "gpt-4o-mini",
       "https://proxy.example.com",
       undefined,
+      undefined,
       undefined
     );
   });
@@ -204,6 +205,7 @@ describe("createFactExtractor", () => {
     expect(OpenAIFactExtractorSpy).toHaveBeenCalledWith(
       "oai-key",
       "gpt-4o-mini",
+      undefined,
       undefined,
       undefined,
       undefined
@@ -244,6 +246,56 @@ describe("createFactExtractor", () => {
       "http://192.168.1.50:11434/v1",
       undefined,
       undefined
+    );
+  });
+});
+
+describe("gemini provider", () => {
+  afterEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("routes chat through the OpenAI engine at Google's endpoint", () => {
+    const config = {
+      llmProvider: "gemini",
+      llmModel: "gemini-flash-latest",
+      geminiApiKey: "g-key",
+    } as Config;
+
+    createChatEngine(
+      config,
+      {} as IMemoryStore,
+      {} as IConversationStore,
+      {} as IFactExtractor,
+      {} as HomeAssistantClient,
+      {} as DeviceScanner,
+      {} as TopologyScanner
+    );
+
+    expect(OpenAIChatEngineSpy.mock.calls[0][0]).toMatchObject({
+      openaiApiKey: "g-key",
+      openaiBaseUrl: GEMINI_BASE_URL,
+      llmModel: "gemini-flash-latest",
+    });
+  });
+
+  it("builds a JSON-mode OpenAI extractor with the gemini key", () => {
+    const config = {
+      llmProvider: "gemini",
+      llmModel: "gemini-flash-lite-latest",
+      geminiApiKey: "g-key",
+      reasoningEffort: "minimal",
+    } as Config;
+
+    createFactExtractor(config);
+
+    expect(OpenAIFactExtractorSpy).toHaveBeenCalledWith(
+      "g-key",
+      "gemini-flash-lite-latest",
+      GEMINI_BASE_URL,
+      "json_object",
+      undefined,
+      "minimal"
     );
   });
 });

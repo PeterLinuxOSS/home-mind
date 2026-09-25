@@ -9,13 +9,15 @@ export class OpenAIFactExtractor implements IFactExtractor {
   private model: string;
   private responseFormat: "json_object" | undefined;
   private maxTokens: number;
+  private reasoningEffort: string | undefined;
 
   constructor(
     apiKey: string,
     model: string,
     baseUrl?: string,
     responseFormat?: "json_object",
-    maxTokens?: number
+    maxTokens?: number,
+    reasoningEffort?: string
   ) {
     this.client = new OpenAI({
       apiKey,
@@ -28,6 +30,7 @@ export class OpenAIFactExtractor implements IFactExtractor {
     this.model = model;
     this.responseFormat = responseFormat;
     this.maxTokens = maxTokens ?? 1000;
+    this.reasoningEffort = reasoningEffort;
   }
 
   async extract(
@@ -63,6 +66,9 @@ ${JSON.stringify(factsJson, null, 2)}`;
           messages: [{ role: "user", content: prompt }],
           ...(this.responseFormat
             ? { response_format: { type: this.responseFormat } }
+            : {}),
+          ...(this.reasoningEffort
+            ? { reasoning_effort: this.reasoningEffort as OpenAI.ReasoningEffort }
             : {}),
         })
       );

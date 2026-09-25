@@ -10,6 +10,9 @@ import { OpenAIChatEngine } from "./openai-client.js";
 import { FactExtractor } from "../memory/extractor.js";
 import { OpenAIFactExtractor } from "../memory/openai-extractor.js";
 
+/** Google's OpenAI-compatible endpoint for the Gemini API. */
+export const GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/openai/";
+
 export function createChatEngine(
   config: Config,
   memory: IMemoryStore,
@@ -36,6 +39,16 @@ export function createChatEngine(
         scanner,
         topology
       );
+    case "gemini":
+      return new OpenAIChatEngine(
+        { ...config, openaiApiKey: config.geminiApiKey, openaiBaseUrl: GEMINI_BASE_URL },
+        memory,
+        conversations,
+        extractor,
+        ha,
+        scanner,
+        topology
+      );
     case "anthropic":
       return new LLMClient(config, memory, conversations, extractor, ha, scanner, topology);
   }
@@ -49,7 +62,8 @@ export function createFactExtractor(config: Config): IFactExtractor {
         config.llmModel,
         config.openaiBaseUrl,
         config.openaiResponseFormat,
-        config.openaiMaxTokens
+        config.openaiMaxTokens,
+        config.reasoningEffort
       );
     case "ollama":
       return new OpenAIFactExtractor(
@@ -58,6 +72,15 @@ export function createFactExtractor(config: Config): IFactExtractor {
         config.ollamaBaseUrl ?? "http://localhost:11434/v1",
         config.openaiResponseFormat,
         config.openaiMaxTokens
+      );
+    case "gemini":
+      return new OpenAIFactExtractor(
+        config.geminiApiKey!,
+        config.llmModel,
+        GEMINI_BASE_URL,
+        config.openaiResponseFormat ?? "json_object",
+        config.openaiMaxTokens,
+        config.reasoningEffort
       );
     case "anthropic":
       return new FactExtractor(config.anthropicApiKey!, config.llmModel);

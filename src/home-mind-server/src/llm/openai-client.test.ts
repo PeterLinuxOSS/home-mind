@@ -200,6 +200,88 @@ describe("OpenAIChatEngine", () => {
     expect(result.toolsUsed).toEqual(["get_state"]);
   });
 
+  it("sends a tool call's extra_content (Gemini thought signature) back", async () => {
+    const extra = { google: { thought_signature: "sig-abc" } };
+    mockCreate.mockResolvedValueOnce(
+      makeStream([
+        {
+          choices: [
+            {
+              delta: {
+                tool_calls: [
+                  {
+                    index: 0,
+                    id: "call-1",
+                    function: { name: "get_state", arguments: '{"entity_id":"light.a"}' },
+                    extra_content: extra,
+                  },
+                ],
+              },
+              finish_reason: null,
+            },
+          ],
+        },
+        { choices: [{ delta: {}, finish_reason: "tool_calls" }] },
+      ])
+    );
+    mockCreate.mockResolvedValueOnce(
+      makeStream([
+        { choices: [{ delta: { content: "On" }, finish_reason: null }] },
+        { choices: [{ delta: {}, finish_reason: "stop" }] },
+      ])
+    );
+
+    await engine.chat({ message: "Light?", userId: "user-1" });
+
+    const followUp = mockCreate.mock.calls[1][0].messages;
+    const assistant = followUp.find((m: { role: string }) => m.role === "assistant");
+    expect(assistant.tool_calls[0].extra_content).toEqual(extra);
+  });
+
+  it("omits extra_content when the provider sends none", async () => {
+    mockCreate.mockResolvedValueOnce(
+      makeStream([
+        {
+          choices: [
+            {
+              delta: {
+                tool_calls: [
+                  { index: 0, id: "call-1", function: { name: "get_state", arguments: "{}" } },
+                ],
+              },
+              finish_reason: "tool_calls",
+            },
+          ],
+        },
+      ])
+    );
+    mockCreate.mockResolvedValueOnce(
+      makeStream([{ choices: [{ delta: { content: "ok" }, finish_reason: "stop" }] }])
+    );
+
+    await engine.chat({ message: "x", userId: "user-1" });
+
+    const assistant = mockCreate.mock.calls[1][0].messages.find(
+      (m: { role: string }) => m.role === "assistant"
+    );
+    expect(assistant.tool_calls[0]).not.toHaveProperty("extra_content");
+  });
+
+  it("passes reasoning_effort only when configured", async () => {
+    mockCreate.mockResolvedValue(
+      makeStream([{ choices: [{ delta: { content: "hi" }, finish_reason: "stop" }] }])
+    );
+    await engine.chat({ message: "x", userId: "user-1" });
+    expect(mockCreate.mock.calls[0][0]).not.toHaveProperty("reasoning_effort");
+
+    config.reasoningEffort = "low";
+    mockCreate.mockResolvedValue(
+      makeStream([{ choices: [{ delta: { content: "hi" }, finish_reason: "stop" }] }])
+    );
+    await engine.chat({ message: "x", userId: "user-1" });
+    expect(mockCreate.mock.calls[1][0].reasoning_effort).toBe("low");
+  });
+
   it("handles multiple tool calls in one response", async () => {
     // First stream: two tool calls
     mockCreate.mockResolvedValueOnce(

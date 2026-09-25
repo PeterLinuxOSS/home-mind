@@ -32,6 +32,11 @@ const OPENAI_TOOLS = toOpenAITools(TOOL_DEFINITIONS);
  */
 const MAX_TOOL_ITERATIONS = 8;
 
+/** Provider-specific tool-call payload outside the OpenAI schema (Gemini's thought signature). */
+function extraContentOf(tc: object): unknown {
+  return (tc as { extra_content?: unknown }).extra_content;
+}
+
 export class OpenAIChatEngine implements IChatEngine {
   private client: OpenAI;
   private memory: IMemoryStore;
@@ -272,6 +277,9 @@ export class OpenAIChatEngine implements IChatEngine {
           // Keep the tool list in the request (history already references it) but
           // stop the model from issuing more calls.
           ...(disableTools ? { tool_choice: "none" as const } : {}),
+          ...(this.config.reasoningEffort
+            ? { reasoning_effort: this.config.reasoningEffort }
+            : {}),
           stream: true,
         })
     );
@@ -282,7 +290,7 @@ export class OpenAIChatEngine implements IChatEngine {
     // Accumulate tool calls from streamed deltas, indexed by position
     const toolCallAccumulator = new Map<
       number,
-      { id: string; name: string; arguments: string }
+      { id: string; name: string; arguments: string; extraContent?: unknown }
     >();
 
     for await (const chunk of stream) {
@@ -306,12 +314,14 @@ export class OpenAIChatEngine implements IChatEngine {
             if (tc.function?.arguments) {
               existing.arguments += tc.function.arguments;
             }
+            existing.extraContent ??= extraContentOf(tc);
           } else {
             // New tool call at this index
             toolCallAccumulator.set(tc.index, {
               id: tc.id ?? "",
               name: tc.function?.name ?? "",
               arguments: tc.function?.arguments ?? "",
+              extraContent: extraContentOf(tc),
             });
           }
         }
@@ -334,6 +344,8 @@ export class OpenAIChatEngine implements IChatEngine {
           name: tc.name,
           arguments: tc.arguments,
         },
+        // Gemini 3 rejects the next turn unless its thought signature comes back.
+        ...(tc.extraContent !== undefined ? { extra_content: tc.extraContent } : {}),
       });
     }
 

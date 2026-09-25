@@ -1,5 +1,14 @@
 import { z } from "zod";
 
+// Model used when LLM_MODEL is unset. Anthropic's stays the historical default
+// for every provider but Gemini, whose key cannot call a Claude model at all.
+const DEFAULT_MODELS = {
+  anthropic: "claude-haiku-4-5-20251001",
+  openai: "claude-haiku-4-5-20251001",
+  ollama: "claude-haiku-4-5-20251001",
+  gemini: "gemini-3.5-flash-lite",
+} as const;
+
 const ConfigSchema = z
   .object({
     // Server
@@ -7,9 +16,14 @@ const ConfigSchema = z
     logLevel: z.enum(["debug", "info", "warn", "error"]).default("info"),
 
     // LLM
-    llmProvider: z.enum(["anthropic", "openai", "ollama"]).default("anthropic"),
-    llmModel: z.string().default("claude-haiku-4-5-20251001"),
+    llmProvider: z.enum(["anthropic", "openai", "ollama", "gemini"]).default("anthropic"),
+    // Unset falls back to a per-provider default, see DEFAULT_MODELS.
+    llmModel: z.string().optional(),
     anthropicApiKey: z.string().optional(),
+    geminiApiKey: z.string().optional(),
+    // OpenAI-compatible `reasoning_effort`. Gemini 3 thinks by default and the
+    // thinking counts against the output cap, so voice turns want it low.
+    reasoningEffort: z.enum(["none", "minimal", "low", "medium", "high"]).optional(),
     openaiApiKey: z.string().optional(),
     openaiBaseUrl: z.string().url().optional(),
 
@@ -99,7 +113,18 @@ const ConfigSchema = z
         path: ["openaiApiKey"],
       });
     }
-  });
+    if (data.llmProvider === "gemini" && !data.geminiApiKey) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "GEMINI_API_KEY is required when LLM_PROVIDER is gemini",
+        path: ["geminiApiKey"],
+      });
+    }
+  })
+  .transform((data) => ({
+    ...data,
+    llmModel: data.llmModel ?? DEFAULT_MODELS[data.llmProvider],
+  }));
 
 export type Config = z.infer<typeof ConfigSchema>;
 
@@ -114,6 +139,8 @@ export function loadConfig(): Config {
     llmProvider: emptyToUndefined(process.env.LLM_PROVIDER),
     llmModel: emptyToUndefined(process.env.LLM_MODEL),
     anthropicApiKey: emptyToUndefined(process.env.ANTHROPIC_API_KEY),
+    geminiApiKey: emptyToUndefined(process.env.GEMINI_API_KEY),
+    reasoningEffort: emptyToUndefined(process.env.REASONING_EFFORT),
     openaiApiKey: emptyToUndefined(process.env.OPENAI_API_KEY),
     openaiBaseUrl: emptyToUndefined(process.env.OPENAI_BASE_URL),
     openaiResponseFormat: emptyToUndefined(process.env.OPENAI_RESPONSE_FORMAT),
