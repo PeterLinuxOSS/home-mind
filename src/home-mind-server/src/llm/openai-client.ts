@@ -134,6 +134,9 @@ export class OpenAIChatEngine implements IChatEngine {
     while (result.toolCalls.length > 0) {
       iterations++;
 
+      if (this.config.logLevel === "debug") {
+        console.debug(`[llm] tool calls sent back: ${JSON.stringify(result.toolCalls)}`);
+      }
       // Add assistant message with tool calls
       messages.push({
         role: "assistant",
@@ -297,6 +300,9 @@ export class OpenAIChatEngine implements IChatEngine {
     for await (const chunk of stream) {
       const choice = chunk.choices[0];
       if (!choice) continue;
+      if (this.config.logLevel === "debug" && choice.delta?.tool_calls) {
+        console.debug(`[llm] tool-call chunk: ${JSON.stringify(chunk)}`);
+      }
 
       // Accumulate text
       if (choice.delta?.content) {
