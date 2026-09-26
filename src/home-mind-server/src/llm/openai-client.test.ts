@@ -265,6 +265,62 @@ describe("OpenAIChatEngine", () => {
     expect(result.response).toBe("20 °C");
   });
 
+  it("keeps Gemini's parallel calls apart when they arrive without an index", async () => {
+    const sig = { google: { thought_signature: "sig" } };
+    mockCreate.mockResolvedValueOnce(
+      makeStream([
+        {
+          choices: [
+            {
+              delta: {
+                tool_calls: [
+                  {
+                    id: "call_1",
+                    type: "function",
+                    function: { name: "get_state", arguments: '{"entity_id":"climate.obyvacka"}' },
+                    extra_content: sig,
+                  },
+                ],
+              },
+              index: 0,
+            },
+          ],
+        },
+        {
+          choices: [
+            {
+              delta: {
+                tool_calls: [
+                  {
+                    id: "call_2",
+                    type: "function",
+                    function: { name: "search_entities", arguments: '{"query":"obyvacka"}' },
+                  },
+                ],
+              },
+              index: 0,
+            },
+          ],
+        },
+        { choices: [{ delta: {}, finish_reason: "stop" }] },
+      ])
+    );
+    mockCreate.mockResolvedValueOnce(
+      makeStream([{ choices: [{ delta: { content: "ok" }, finish_reason: "stop" }] }])
+    );
+
+    await engine.chat({ message: "x", userId: "user-1" });
+
+    const assistant = mockCreate.mock.calls[1][0].messages.find(
+      (m: { role: string }) => m.role === "assistant"
+    );
+    expect(assistant.tool_calls.map((c: { id: string }) => c.id)).toEqual(["call_1", "call_2"]);
+    expect(assistant.tool_calls[1].function.arguments).toBe('{"query":"obyvacka"}');
+    expect(assistant.tool_calls[0].extra_content).toEqual(sig);
+    expect(assistant.tool_calls[1]).not.toHaveProperty("extra_content");
+    expect(handleToolCall).toHaveBeenCalledTimes(2);
+  });
+
   it("omits extra_content when the provider sends none", async () => {
     mockCreate.mockResolvedValueOnce(
       makeStream([

@@ -291,12 +291,11 @@ export class OpenAIChatEngine implements IChatEngine {
     let text = "";
     let finishReason: string | null = null;
 
-    // Accumulate tool calls from streamed deltas, indexed by position
-    const toolCallAccumulator = new Map<
-      number,
-      { id: string; name: string; arguments: string; extraContent?: unknown }
-    >();
-
+    // Tool calls in arrival order. OpenAI streams one call over several deltas
+    // sharing an `index`; Gemini sends each call whole with its own `id` and no
+    // `index`, so a new id always opens a new call.
+    const calls: { id: string; name: string; arguments: string; extraContent?: unknown }[] = [];
+    const byIndex = new Map<number, number>();
     for await (const chunk of stream) {
       const choice = chunk.choices[0];
       if (!choice) continue;
@@ -315,21 +314,21 @@ export class OpenAIChatEngine implements IChatEngine {
       // Accumulate tool call deltas
       if (choice.delta?.tool_calls) {
         for (const tc of choice.delta.tool_calls) {
-          const existing = toolCallAccumulator.get(tc.index);
-          if (existing) {
-            // Append to existing tool call's arguments
+          const pos = tc.index === undefined ? calls.length - 1 : byIndex.get(tc.index);
+          const existing = pos === undefined ? undefined : calls[pos];
+          if (existing && !(tc.id && existing.id && tc.id !== existing.id)) {
             if (tc.function?.arguments) {
               existing.arguments += tc.function.arguments;
             }
             existing.extraContent ??= extraContentOf(tc);
           } else {
-            // New tool call at this index
-            toolCallAccumulator.set(tc.index, {
+            calls.push({
               id: tc.id ?? "",
               name: tc.function?.name ?? "",
               arguments: tc.function?.arguments ?? "",
               extraContent: extraContentOf(tc),
             });
+            if (tc.index !== undefined) byIndex.set(tc.index, calls.length - 1);
           }
         }
       }
@@ -341,9 +340,7 @@ export class OpenAIChatEngine implements IChatEngine {
 
     // Convert accumulated tool calls to the expected format
     const toolCalls: FunctionToolCall[] = [];
-    for (const [, tc] of [...toolCallAccumulator.entries()].sort(
-      (a, b) => a[0] - b[0]
-    )) {
+    for (const tc of calls) {
       toolCalls.push({
         id: tc.id,
         type: "function" as const,
