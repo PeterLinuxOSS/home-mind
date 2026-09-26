@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.17.2
+
+Server built from `gemini-3`.
+
+- `log_level: debug` logs the raw tool-call chunks, to diagnose providers
+  that reject the follow-up turn.
+
 ## 0.17.1
 
 Server built from `gemini-2`.
