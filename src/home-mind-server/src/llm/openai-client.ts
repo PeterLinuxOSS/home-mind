@@ -192,6 +192,18 @@ export class OpenAIChatEngine implements IChatEngine {
       if (forceAnswer) break;
     }
 
+    // Gemini sometimes ends a turn after a successful tool call without a word;
+    // ask once more, tools off, so the user hears what was done.
+    if (result.text === "" && result.toolCalls.length === 0 && toolsUsed.length > 0) {
+      console.warn("[llm] empty answer after tool calls — asking the model to confirm");
+      messages.push({
+        role: "user",
+        content:
+          "(System: reply to the user now, in their language, with one short sentence about the result of the actions above.)",
+      });
+      result = await this.streamCompletion(messages, isVoice, onChunk, true);
+    }
+
     const responseText = result.text;
 
     // 6. Store assistant response
@@ -351,6 +363,12 @@ export class OpenAIChatEngine implements IChatEngine {
         // Gemini 3 rejects the next turn unless its thought signature comes back.
         ...(tc.extraContent !== undefined ? { extra_content: tc.extraContent } : {}),
       });
+    }
+
+    if (this.config.logLevel === "debug") {
+      console.debug(
+        `[llm] stream end: finish=${finishReason} text=${text.length} chars toolCalls=${toolCalls.length}`
+      );
     }
 
     return { text, finishReason, toolCalls };
