@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.17.4
+
+Server built from `gemini-5`.
+
+- After a successful action Gemini sometimes answered with nothing, so
+  Assist said "I received your request but got no response" although the
+  light had switched. The model is now asked once, with tools off, to
+  confirm what it did.
+
 ## 0.17.3
 
 Server built from `gemini-4`.
