@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.17.1
+
+Server built from `gemini-2`.
+
+- Gemini answered every question that needed a tool with an empty reply:
+  its API ends a tool-calling turn with `finish_reason: stop`, and the
+  server only ran tools on `tool_calls`. Tools now run whenever the model
+  asks for them.
+
 ## 0.17.0
 
 Server built from `gemini-1`.
