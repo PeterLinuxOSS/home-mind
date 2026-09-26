@@ -321,7 +321,8 @@ describe("OpenAIChatEngine", () => {
     expect(handleToolCall).toHaveBeenCalledTimes(2);
   });
 
-  it("asks once for a confirmation when the answer after a tool call is empty", async () => {
+  it("replies with actionDoneReply when a tool turn ends in silence", async () => {
+    config.actionDoneReply = "Hotovo.";
     mockCreate.mockResolvedValueOnce(
       makeStream([
         {
@@ -339,24 +340,25 @@ describe("OpenAIChatEngine", () => {
       ])
     );
     mockCreate.mockResolvedValueOnce(makeStream([{ choices: [{ delta: {}, finish_reason: "stop" }] }]));
-    mockCreate.mockResolvedValueOnce(
-      makeStream([{ choices: [{ delta: { content: "Svetlo svieti." }, finish_reason: "stop" }] }])
+
+    const chunks: string[] = [];
+    const result = await engine.chat({ message: "zapni svetlo", userId: "user-1" }, (c) =>
+      chunks.push(c)
     );
 
-    const result = await engine.chat({ message: "zapni svetlo", userId: "user-1" });
-
-    expect(result.response).toBe("Svetlo svieti.");
+    expect(result.response).toBe("Hotovo.");
     expect(result.error).toBeUndefined();
-    expect(mockCreate).toHaveBeenCalledTimes(3);
-    expect(mockCreate.mock.calls[2][0].tool_choice).toBe("none");
+    expect(chunks).toEqual(["Hotovo."]);
+    expect(mockCreate).toHaveBeenCalledTimes(2);
   });
 
-  it("does not re-ask when the model answered without tools", async () => {
+  it("keeps the empty-response error when no tool ran", async () => {
     mockCreate.mockResolvedValueOnce(makeStream([{ choices: [{ delta: {}, finish_reason: "stop" }] }]));
 
-    await engine.chat({ message: "x", userId: "user-1" });
+    const result = await engine.chat({ message: "x", userId: "user-1" });
 
-    expect(mockCreate).toHaveBeenCalledTimes(1);
+    expect(result.response).toBe("");
+    expect(result.error?.code).toBe("EMPTY_CONTENT");
   });
 
   it("omits extra_content when the provider sends none", async () => {

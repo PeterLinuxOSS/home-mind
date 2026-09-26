@@ -192,16 +192,11 @@ export class OpenAIChatEngine implements IChatEngine {
       if (forceAnswer) break;
     }
 
-    // Gemini sometimes ends a turn after a successful tool call without a word;
-    // ask once more, tools off, so the user hears what was done.
+    // Gemini often ends a turn after a successful tool call without a word; a
+    // fixed reply is a round-trip faster than asking the model again.
     if (result.text === "" && result.toolCalls.length === 0 && toolsUsed.length > 0) {
-      console.warn("[llm] empty answer after tool calls — asking the model to confirm");
-      messages.push({
-        role: "user",
-        content:
-          "(System: reply to the user now, in their language, with one short sentence about the result of the actions above.)",
-      });
-      result = await this.streamCompletion(messages, isVoice, onChunk, true);
+      result = { ...result, text: this.config.actionDoneReply };
+      onChunk?.(result.text);
     }
 
     const responseText = result.text;

@@ -57,6 +57,9 @@ const ConfigSchema = z
     conversationStorage: z.enum(["memory", "sqlite"]).default("memory"),
     conversationDbPath: z.string().default("/data/conversations.db"),
 
+    // Said when the model runs tools but writes no answer (Gemini does this).
+    actionDoneReply: z.string().default("Done."),
+
     // Custom prompt
     customPrompt: z.string().optional(),
 
@@ -156,6 +159,7 @@ export function loadConfig(): Config {
     conversationStorage: emptyToUndefined(process.env.CONVERSATION_STORAGE),
     conversationDbPath: emptyToUndefined(process.env.CONVERSATION_DB_PATH),
     customPrompt: emptyToUndefined(process.env.CUSTOM_PROMPT),
+    actionDoneReply: emptyToUndefined(process.env.ACTION_DONE_REPLY),
     deviceOverrides: emptyToUndefined(process.env.DEVICE_OVERRIDES),
     layoutDomains: emptyToUndefined(process.env.LAYOUT_DOMAINS),
     layoutFromExposed: emptyToUndefined(process.env.LAYOUT_FROM_EXPOSED),
