@@ -238,6 +238,33 @@ describe("OpenAIChatEngine", () => {
     expect(assistant.tool_calls[0].extra_content).toEqual(extra);
   });
 
+  it("runs tool calls even when finish_reason is stop (Gemini)", async () => {
+    mockCreate.mockResolvedValueOnce(
+      makeStream([
+        {
+          choices: [
+            {
+              delta: {
+                tool_calls: [
+                  { index: 0, id: "call-1", function: { name: "get_state", arguments: "{}" } },
+                ],
+              },
+              finish_reason: "stop",
+            },
+          ],
+        },
+      ])
+    );
+    mockCreate.mockResolvedValueOnce(
+      makeStream([{ choices: [{ delta: { content: "20 °C" }, finish_reason: "stop" }] }])
+    );
+
+    const result = await engine.chat({ message: "x", userId: "user-1" });
+
+    expect(result.toolsUsed).toEqual(["get_state"]);
+    expect(result.response).toBe("20 °C");
+  });
+
   it("omits extra_content when the provider sends none", async () => {
     mockCreate.mockResolvedValueOnce(
       makeStream([

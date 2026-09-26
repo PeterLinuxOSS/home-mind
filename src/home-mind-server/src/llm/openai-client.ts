@@ -130,7 +130,8 @@ export class OpenAIChatEngine implements IChatEngine {
     let result = await this.streamCompletion(messages, isVoice, onChunk);
 
     let iterations = 0;
-    while (result.finishReason === "tool_calls" && result.toolCalls.length > 0) {
+    // Not finish_reason: Gemini reports "stop" on a turn that calls tools.
+    while (result.toolCalls.length > 0) {
       iterations++;
 
       // Add assistant message with tool calls
