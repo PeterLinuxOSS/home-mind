@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.17.3
+
+Server built from `gemini-4`.
+
+- Gemini failed with "400 status code (no body)" whenever it called two
+  tools at once: it streams each call with its own id but no index, and
+  the calls were glued into one. They are now kept apart.
+
 ## 0.17.2
 
 Server built from `gemini-3`.
