@@ -38,6 +38,11 @@ configuration:
     description: >-
       Required for the Ollama provider, for example
       http://192.168.1.10:11434/v1.
+  action_done_reply:
+    name: Reply after an action
+    description: >-
+      Said when the model carries out an action but writes no answer, which
+      Gemini often does. Empty means "Done.". Set it in your language.
   custom_prompt:
     name: Custom prompt
     description: >-

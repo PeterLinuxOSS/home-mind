@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.17.5
+
+Server built from `gemini-6`.
+
+- A silent action is now answered with `action_done_reply` (default
+  `Done.`) instead of asking the model again — about a second faster.
+
 ## 0.17.4
 
 Server built from `gemini-5`.

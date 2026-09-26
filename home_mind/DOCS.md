@@ -51,6 +51,7 @@ Finally set Home Mind as the conversation agent under
 | `anthropic_api_key` | Required for `anthropic`. From [console.anthropic.com](https://console.anthropic.com/). |
 | `gemini_api_key` | Required for `gemini`. From [aistudio.google.com/apikey](https://aistudio.google.com/apikey). |
 | `gemini_model` | Dropdown for `gemini`: `gemini-3.5-flash-lite` (default, fastest) up to `gemini-3.8-flash` (smartest). Takes effect after an add-on restart. |
+| `action_done_reply` | Reply when the model acts but writes nothing (Gemini often does). Default `Done.`; set it in your language, e.g. `Hotovo.` |
 | `reasoning_effort` | `none`, `minimal`, `low`, `medium` or `high`. Thinking budget for reasoning models; Gemini 3 thinks by default and the thinking counts against the short voice reply cap, so `low` is the lowest setting that works on every Gemini model (`minimal` is faster but 3.8 Flash rejects it). Not used by `anthropic`. |
 | `openai_api_key` | Required for `openai`. |
 | `openai_base_url` | Override for OpenAI-compatible endpoints. |

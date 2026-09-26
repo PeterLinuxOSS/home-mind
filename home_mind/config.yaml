@@ -1,6 +1,6 @@
 ---
 name: Home Mind
-version: "0.17.4"
+version: "0.17.5"
 slug: home_mind
 description: >-
   AI assistant with cognitive memory for Home Assistant. Remembers your
@@ -56,6 +56,7 @@ schema:
   ollama_base_url: url?
   # Behaviour
   custom_prompt: str?
+  action_done_reply: str?
   device_overrides: str?
   layout_domains: str?
   memory_token_limit: int(100,)
