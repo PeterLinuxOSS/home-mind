@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.18.0
+
+- Model dropdowns for every provider: `anthropic_model` and `openai_model`
+  join `gemini_model`. A model typed in `llm_model` still wins.
+- The API key fields of all three providers now show in the configuration
+  form without "Show unused optional configuration options".
+
 ## 0.17.5
 
 Server built from `gemini-6`.

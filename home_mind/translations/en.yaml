@@ -24,6 +24,16 @@ configuration:
     description: >-
       Thinking budget for reasoning models (Gemini 3, GPT-5). Lower is faster
       and cheaper (Gemini 3.8 Flash rejects minimal); empty uses the model's own default. Not used by Anthropic.
+  anthropic_model:
+    name: Claude model
+    description: >-
+      Model for the Anthropic provider. Haiku answers fastest, Opus is the
+      smartest. A model typed under Model takes precedence.
+  openai_model:
+    name: OpenAI model
+    description: >-
+      Model for the OpenAI provider. GPT-4.1 mini and nano do not reason and
+      answer fastest. A model typed under Model takes precedence.
   openai_api_key:
     name: OpenAI API key
     description: Required for the OpenAI provider.

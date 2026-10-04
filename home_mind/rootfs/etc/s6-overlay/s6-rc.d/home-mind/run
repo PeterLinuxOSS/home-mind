@@ -70,9 +70,13 @@ export STT_PROVIDER="$(bashio::config 'stt_provider')"
 export TTS_PROVIDER="$(bashio::config 'tts_provider')"
 
 export_option 'llm_model' 'LLM_MODEL'
-# The Gemini dropdown applies only when no free-text model overrides it.
-if [[ "${LLM_PROVIDER}" == "gemini" ]] && ! bashio::config.has_value 'llm_model'; then
-    export_option 'gemini_model' 'LLM_MODEL'
+# The provider's model dropdown applies only when no free-text model overrides it.
+if ! bashio::config.has_value 'llm_model'; then
+    case "${LLM_PROVIDER}" in
+        anthropic) export_option 'anthropic_model' 'LLM_MODEL' ;;
+        openai) export_option 'openai_model' 'LLM_MODEL' ;;
+        gemini) export_option 'gemini_model' 'LLM_MODEL' ;;
+    esac
 fi
 export_option 'anthropic_api_key' 'ANTHROPIC_API_KEY'
 export_option 'gemini_api_key' 'GEMINI_API_KEY'
