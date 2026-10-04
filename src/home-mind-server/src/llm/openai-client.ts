@@ -10,6 +10,7 @@ import { buildSystemPromptText } from "./prompts.js";
 import { TOOL_DEFINITIONS, toOpenAITools } from "./tool-definitions.js";
 import { handleToolCall, extractAndStoreFacts, type ToolContext } from "./tool-handler.js";
 import { withTokenCap, usesMaxCompletionTokens } from "./token-cap.js";
+import { withReasoningEffort } from "./reasoning-effort.js";
 import type {
   ChatRequest,
   ChatResponse,
@@ -280,19 +281,19 @@ export class OpenAIChatEngine implements IChatEngine {
       this.config.llmModel,
       isVoice ? 500 : 2048,
       (cap) =>
-        this.client.chat.completions.create({
-          model: this.config.llmModel,
-          ...cap,
-          messages,
-          tools: OPENAI_TOOLS,
-          // Keep the tool list in the request (history already references it) but
-          // stop the model from issuing more calls.
-          ...(disableTools ? { tool_choice: "none" as const } : {}),
-          ...(this.config.reasoningEffort
-            ? { reasoning_effort: this.config.reasoningEffort }
-            : {}),
-          stream: true,
-        })
+        withReasoningEffort(this.config.llmModel, this.config.reasoningEffort, (reasoning) =>
+          this.client.chat.completions.create({
+            model: this.config.llmModel,
+            ...cap,
+            ...reasoning,
+            messages,
+            tools: OPENAI_TOOLS,
+            // Keep the tool list in the request (history already references it) but
+            // stop the model from issuing more calls.
+            ...(disableTools ? { tool_choice: "none" as const } : {}),
+            stream: true,
+          })
+        )
     );
 
     let text = "";
