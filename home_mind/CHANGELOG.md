@@ -2,10 +2,14 @@
 
 ## 0.18.0
 
+Server built from `gemini-7`.
+
 - Model dropdowns for every provider: `anthropic_model` and `openai_model`
   join `gemini_model`. A model typed in `llm_model` still wins.
 - The API key fields of all three providers now show in the configuration
   form without "Show unused optional configuration options".
+- `reasoning_effort` is dropped for models that reject it (GPT-4.1, most
+  local models) instead of failing every request.
 
 ## 0.17.5
 
