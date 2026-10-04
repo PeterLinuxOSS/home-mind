@@ -27,8 +27,8 @@ configuration:
   anthropic_model:
     name: Claude model
     description: >-
-      Model for the Anthropic provider. Haiku answers fastest, Opus is the
-      smartest. A model typed under Model takes precedence.
+      Model for the Anthropic provider. Haiku answers fastest, Fable 5.1 is the
+      most capable (and the slowest and most expensive). A model typed under Model takes precedence.
   openai_model:
     name: OpenAI model
     description: >-

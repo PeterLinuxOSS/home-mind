@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.18.1
+
+- `anthropic_model` lists every current Claude model: Haiku 4.5, Sonnet 4.6
+  and 5, Opus 4.8, 5 and 5.5, Fable 5 and 5.1.
+
 ## 0.18.0
 
 Server built from `gemini-7`.
