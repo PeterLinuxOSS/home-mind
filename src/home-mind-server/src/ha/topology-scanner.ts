@@ -125,7 +125,9 @@ interface EntityRef {
  * in the id says so.
  */
 function entityLabel(entity: EntityRef): string {
-  return entity.name ? `${entity.id} (${entity.name})` : entity.id;
+  // A line break or comma in a name would blur where one entity ends.
+  const name = entity.name?.replace(/[\r\n,]+/g, " ").replace(/\s+/g, " ").trim();
+  return name ? `${entity.id} (${name})` : entity.id;
 }
 
 interface AreaData {
@@ -360,7 +362,7 @@ export class TopologyScanner {
       .filter((area) => area.entities.length > 0)
       .map((area) => {
         const list = area.entities
-          .sort((x, y) => x.id.localeCompare(y.id))
+          .sort((x, y) => x.id.localeCompare(y.id, "en"))
           .map(entityLabel)
           .join(", ");
         return `- ${area.name}: ${list}`;

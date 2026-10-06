@@ -57,7 +57,8 @@ const INDIRECT_TARGETS = ["area_id", "device_id", "floor_id", "label_id"] as con
 const SCRIPT_LIFECYCLE = new Set(["turn_on", "turn_off", "toggle", "reload"]);
 
 /**
- * Lower-case and strip diacritics, so "Spálňa" and "spalna" compare equal.
+ * Lower-case and strip combining diacritics, so "Spálňa" and "spalna" compare
+ * equal. Letters that do not decompose (ł, ø, ß) are left as they are.
  * NFD splits an accented letter into base + combining mark; the range
  * U+0300–U+036F is exactly those marks.
  */

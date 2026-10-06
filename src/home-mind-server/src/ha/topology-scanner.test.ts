@@ -355,6 +355,13 @@ describe("TopologyScanner entity names", () => {
     expect(text).toContain("cover.garage_door (Garage Door)");
   });
 
+  it("keeps a name with a line break or comma on one unambiguous entry", async () => {
+    const ha = makeHa(LAYOUT, Infinity, { "light.kitchen": "Kitchen,\nmain" });
+    const scanner = new TopologyScanner(ha);
+    await scanner.scan();
+    expect(scanner.formatSection()).toContain("light.kitchen (Kitchen main)");
+  });
+
   it("falls back to the bare id when an entity has no name", async () => {
     const scanner = new TopologyScanner(makeHa());
     await scanner.scan();
