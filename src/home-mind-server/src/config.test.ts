@@ -22,6 +22,7 @@ describe("loadConfig", () => {
     delete process.env.OPENAI_API_KEY;
     delete process.env.OPENAI_BASE_URL;
     delete process.env.OLLAMA_BASE_URL;
+    delete process.env.REASONING_EFFORT;
     delete process.env.HA_URL;
     delete process.env.HA_TOKEN;
     delete process.env.HA_SKIP_TLS_VERIFY;
@@ -245,5 +246,14 @@ describe("loadConfig", () => {
     const config = await loadConfigFresh();
 
     expect(config.ollamaBaseUrl).toBeUndefined();
+  });
+
+  it("reads REASONING_EFFORT", async () => {
+    Object.assign(process.env, BASE_ENV);
+    process.env.REASONING_EFFORT = "low";
+
+    const config = await loadConfigFresh();
+
+    expect(config.reasoningEffort).toBe("low");
   });
 });

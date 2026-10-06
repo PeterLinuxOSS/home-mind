@@ -188,6 +188,7 @@ describe("createFactExtractor", () => {
       "gpt-4o-mini",
       "https://proxy.example.com",
       undefined,
+      undefined,
       undefined
     );
   });
@@ -204,6 +205,7 @@ describe("createFactExtractor", () => {
     expect(OpenAIFactExtractorSpy).toHaveBeenCalledWith(
       "oai-key",
       "gpt-4o-mini",
+      undefined,
       undefined,
       undefined,
       undefined
@@ -224,6 +226,7 @@ describe("createFactExtractor", () => {
       "llama3.1",
       "http://localhost:11434/v1",
       undefined,
+      undefined,
       undefined
     );
   });
@@ -243,7 +246,27 @@ describe("createFactExtractor", () => {
       "llama3.1",
       "http://192.168.1.50:11434/v1",
       undefined,
+      undefined,
       undefined
     );
+  });
+});
+
+describe("reasoning effort", () => {
+  afterEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("reaches the extractor for every OpenAI-compatible provider", () => {
+    for (const llmProvider of ["openai", "ollama"] as const) {
+      createFactExtractor({
+        llmProvider,
+        llmModel: "m",
+        openaiApiKey: "k",
+        reasoningEffort: "low",
+      } as Config);
+    }
+
+    expect(OpenAIFactExtractorSpy.mock.calls.map((c) => c[5])).toEqual(["low", "low"]);
   });
 });

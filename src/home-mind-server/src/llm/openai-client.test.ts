@@ -200,6 +200,236 @@ describe("OpenAIChatEngine", () => {
     expect(result.toolsUsed).toEqual(["get_state"]);
   });
 
+  it("sends a tool call's extra_content (Gemini thought signature) back", async () => {
+    const extra = { google: { thought_signature: "sig-abc" } };
+    mockCreate.mockResolvedValueOnce(
+      makeStream([
+        {
+          choices: [
+            {
+              delta: {
+                tool_calls: [
+                  {
+                    index: 0,
+                    id: "call-1",
+                    function: { name: "get_state", arguments: '{"entity_id":"light.a"}' },
+                    extra_content: extra,
+                  },
+                ],
+              },
+              finish_reason: null,
+            },
+          ],
+        },
+        { choices: [{ delta: {}, finish_reason: "tool_calls" }] },
+      ])
+    );
+    mockCreate.mockResolvedValueOnce(
+      makeStream([
+        { choices: [{ delta: { content: "On" }, finish_reason: null }] },
+        { choices: [{ delta: {}, finish_reason: "stop" }] },
+      ])
+    );
+
+    await engine.chat({ message: "Light?", userId: "user-1" });
+
+    const followUp = mockCreate.mock.calls[1][0].messages;
+    const assistant = followUp.find((m: { role: string }) => m.role === "assistant");
+    expect(assistant.tool_calls[0].extra_content).toEqual(extra);
+  });
+
+  it("runs tool calls even when finish_reason is stop (Gemini)", async () => {
+    mockCreate.mockResolvedValueOnce(
+      makeStream([
+        {
+          choices: [
+            {
+              delta: {
+                tool_calls: [
+                  { index: 0, id: "call-1", function: { name: "get_state", arguments: "{}" } },
+                ],
+              },
+              finish_reason: "stop",
+            },
+          ],
+        },
+      ])
+    );
+    mockCreate.mockResolvedValueOnce(
+      makeStream([{ choices: [{ delta: { content: "20 °C" }, finish_reason: "stop" }] }])
+    );
+
+    const result = await engine.chat({ message: "x", userId: "user-1" });
+
+    expect(result.toolsUsed).toEqual(["get_state"]);
+    expect(result.response).toBe("20 °C");
+  });
+
+  it("keeps Gemini's parallel calls apart when they arrive without an index", async () => {
+    const sig = { google: { thought_signature: "sig" } };
+    mockCreate.mockResolvedValueOnce(
+      makeStream([
+        {
+          choices: [
+            {
+              delta: {
+                tool_calls: [
+                  {
+                    id: "call_1",
+                    type: "function",
+                    function: { name: "get_state", arguments: '{"entity_id":"climate.obyvacka"}' },
+                    extra_content: sig,
+                  },
+                ],
+              },
+              index: 0,
+            },
+          ],
+        },
+        {
+          choices: [
+            {
+              delta: {
+                tool_calls: [
+                  {
+                    id: "call_2",
+                    type: "function",
+                    function: { name: "search_entities", arguments: '{"query":"obyvacka"}' },
+                  },
+                ],
+              },
+              index: 0,
+            },
+          ],
+        },
+        { choices: [{ delta: {}, finish_reason: "stop" }] },
+      ])
+    );
+    mockCreate.mockResolvedValueOnce(
+      makeStream([{ choices: [{ delta: { content: "ok" }, finish_reason: "stop" }] }])
+    );
+
+    await engine.chat({ message: "x", userId: "user-1" });
+
+    const assistant = mockCreate.mock.calls[1][0].messages.find(
+      (m: { role: string }) => m.role === "assistant"
+    );
+    expect(assistant.tool_calls.map((c: { id: string }) => c.id)).toEqual(["call_1", "call_2"]);
+    expect(assistant.tool_calls[1].function.arguments).toBe('{"query":"obyvacka"}');
+    expect(assistant.tool_calls[0].extra_content).toEqual(sig);
+    expect(assistant.tool_calls[1]).not.toHaveProperty("extra_content");
+    expect(handleToolCall).toHaveBeenCalledTimes(2);
+  });
+
+  it("replies with actionDoneReply when a tool turn ends in silence", async () => {
+    config.actionDoneReply = "Hotovo.";
+    mockCreate.mockResolvedValueOnce(
+      makeStream([
+        {
+          choices: [
+            {
+              delta: {
+                tool_calls: [
+                  { index: 0, id: "call-1", function: { name: "call_service", arguments: "{}" } },
+                ],
+              },
+              finish_reason: "stop",
+            },
+          ],
+        },
+      ])
+    );
+    mockCreate.mockResolvedValueOnce(makeStream([{ choices: [{ delta: {}, finish_reason: "stop" }] }]));
+
+    const chunks: string[] = [];
+    const result = await engine.chat({ message: "zapni svetlo", userId: "user-1" }, (c) =>
+      chunks.push(c)
+    );
+
+    expect(result.response).toBe("Hotovo.");
+    expect(result.error).toBeUndefined();
+    expect(chunks).toEqual(["Hotovo."]);
+    expect(mockCreate).toHaveBeenCalledTimes(2);
+  });
+
+  it("keeps the truncation error when the cap ran out after a tool call", async () => {
+    mockCreate.mockResolvedValueOnce(
+      makeStream([
+        {
+          choices: [
+            {
+              delta: {
+                tool_calls: [
+                  { index: 0, id: "call-1", function: { name: "get_state", arguments: "{}" } },
+                ],
+              },
+              finish_reason: "tool_calls",
+            },
+          ],
+        },
+      ])
+    );
+    mockCreate.mockResolvedValueOnce(makeStream([{ choices: [{ delta: {}, finish_reason: "length" }] }]));
+
+    const result = await engine.chat({ message: "x", userId: "user-1" });
+
+    expect(result.response).toBe("");
+    expect(result.error?.code).toBe("MAX_TOKENS_TRUNCATED");
+  });
+
+  it("keeps the empty-response error when no tool ran", async () => {
+    mockCreate.mockResolvedValueOnce(makeStream([{ choices: [{ delta: {}, finish_reason: "stop" }] }]));
+
+    const result = await engine.chat({ message: "x", userId: "user-1" });
+
+    expect(result.response).toBe("");
+    expect(result.error?.code).toBe("EMPTY_CONTENT");
+  });
+
+  it("omits extra_content when the provider sends none", async () => {
+    mockCreate.mockResolvedValueOnce(
+      makeStream([
+        {
+          choices: [
+            {
+              delta: {
+                tool_calls: [
+                  { index: 0, id: "call-1", function: { name: "get_state", arguments: "{}" } },
+                ],
+              },
+              finish_reason: "tool_calls",
+            },
+          ],
+        },
+      ])
+    );
+    mockCreate.mockResolvedValueOnce(
+      makeStream([{ choices: [{ delta: { content: "ok" }, finish_reason: "stop" }] }])
+    );
+
+    await engine.chat({ message: "x", userId: "user-1" });
+
+    const assistant = mockCreate.mock.calls[1][0].messages.find(
+      (m: { role: string }) => m.role === "assistant"
+    );
+    expect(assistant.tool_calls[0]).not.toHaveProperty("extra_content");
+  });
+
+  it("passes reasoning_effort only when configured", async () => {
+    mockCreate.mockResolvedValue(
+      makeStream([{ choices: [{ delta: { content: "hi" }, finish_reason: "stop" }] }])
+    );
+    await engine.chat({ message: "x", userId: "user-1" });
+    expect(mockCreate.mock.calls[0][0]).not.toHaveProperty("reasoning_effort");
+
+    config.reasoningEffort = "low";
+    mockCreate.mockResolvedValue(
+      makeStream([{ choices: [{ delta: { content: "hi" }, finish_reason: "stop" }] }])
+    );
+    await engine.chat({ message: "x", userId: "user-1" });
+    expect(mockCreate.mock.calls[1][0].reasoning_effort).toBe("low");
+  });
+
   it("handles multiple tool calls in one response", async () => {
     // First stream: two tool calls
     mockCreate.mockResolvedValueOnce(

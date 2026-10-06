@@ -10,6 +10,7 @@ import { buildSystemPromptText } from "./prompts.js";
 import { TOOL_DEFINITIONS, toOpenAITools } from "./tool-definitions.js";
 import { handleToolCall, extractAndStoreFacts, type ToolContext } from "./tool-handler.js";
 import { withTokenCap } from "./token-cap.js";
+import { withReasoningEffort } from "./reasoning-effort.js";
 import {
   readUsage,
   describeUsage,
@@ -41,6 +42,11 @@ const OPENAI_TOOLS = toOpenAITools(TOOL_DEFINITIONS);
  * with tool calling disabled so there is still a written answer.
  */
 const MAX_TOOL_ITERATIONS = 8;
+
+/** Provider-specific tool-call payload outside the OpenAI schema (Gemini's thought signature). */
+function extraContentOf(tc: object): unknown {
+  return (tc as { extra_content?: unknown }).extra_content;
+}
 
 export class OpenAIChatEngine implements IChatEngine {
   private client: OpenAI;
@@ -135,9 +141,13 @@ export class OpenAIChatEngine implements IChatEngine {
     let result = await this.streamCompletion(messages, isVoice, onChunk);
 
     let iterations = 0;
-    while (result.finishReason === "tool_calls" && result.toolCalls.length > 0) {
+    // Not finish_reason: Gemini reports "stop" on a turn that calls tools.
+    while (result.toolCalls.length > 0) {
       iterations++;
 
+      if (this.config.logLevel === "debug") {
+        console.debug(`[llm] tool calls sent back: ${JSON.stringify(result.toolCalls)}`);
+      }
       // Add assistant message with tool calls
       messages.push({
         role: "assistant",
@@ -191,6 +201,19 @@ export class OpenAIChatEngine implements IChatEngine {
       }
       result = await this.streamCompletion(messages, isVoice, onChunk, forceAnswer);
       if (forceAnswer) break;
+    }
+
+    // Gemini often ends a turn after a successful tool call without a word; a
+    // fixed reply is a round-trip faster than asking the model again.
+    // A cap hit is not silence: keep that diagnosis instead of covering it.
+    if (
+      result.text === "" &&
+      result.toolCalls.length === 0 &&
+      toolsUsed.length > 0 &&
+      result.finishReason !== "length"
+    ) {
+      result = { ...result, text: this.config.actionDoneReply };
+      onChunk?.(result.text);
     }
 
     const responseText = result.text;
@@ -294,32 +317,34 @@ export class OpenAIChatEngine implements IChatEngine {
   }> {
     const cap = this.maxOutputTokens(isVoice);
     const stream = await withTokenCap(this.config.llmModel, cap, (capParam) =>
-      this.client.chat.completions.create({
-        model: this.config.llmModel,
-        ...capParam,
-        messages,
-        tools: OPENAI_TOOLS,
-        // Keep the tool list in the request (history already references it) but
-        // stop the model from issuing more calls.
-        ...(disableTools ? { tool_choice: "none" as const } : {}),
-        stream: true,
-        // Ask for the token breakdown. Without this a streamed call reports no
-        // usage at all, which is why a cap being spent entirely on reasoning
-        // looked identical to a prompt being too large.
-        stream_options: { include_usage: true },
-      })
+      withReasoningEffort(this.config.llmModel, this.config.reasoningEffort, (reasoning) =>
+        this.client.chat.completions.create({
+          model: this.config.llmModel,
+          ...capParam,
+          ...reasoning,
+          messages,
+          tools: OPENAI_TOOLS,
+          // Keep the tool list in the request (history already references it) but
+          // stop the model from issuing more calls.
+          ...(disableTools ? { tool_choice: "none" as const } : {}),
+          stream: true,
+          // Ask for the token breakdown. Without this a streamed call reports no
+          // usage at all, which is why a cap being spent entirely on reasoning
+          // looked identical to a prompt being too large.
+          stream_options: { include_usage: true },
+        })
+      )
     );
 
     let text = "";
     let finishReason: string | null = null;
     let usage: TokenUsage | undefined;
 
-    // Accumulate tool calls from streamed deltas, indexed by position
-    const toolCallAccumulator = new Map<
-      number,
-      { id: string; name: string; arguments: string }
-    >();
-
+    // Tool calls in arrival order. OpenAI streams one call over several deltas
+    // sharing an `index`; Gemini sends each call whole with its own `id` and no
+    // `index`, so a new id always opens a new call.
+    const calls: { id: string; name: string; arguments: string; extraContent?: unknown }[] = [];
+    const byIndex = new Map<number, number>();
     for await (const chunk of stream) {
       // The usage chunk arrives last and carries no choices, so read it before
       // the guard below skips it.
@@ -327,6 +352,9 @@ export class OpenAIChatEngine implements IChatEngine {
 
       const choice = chunk.choices[0];
       if (!choice) continue;
+      if (this.config.logLevel === "debug" && choice.delta?.tool_calls) {
+        console.debug(`[llm] tool-call chunk: ${JSON.stringify(chunk)}`);
+      }
 
       // Accumulate text
       if (choice.delta?.content) {
@@ -339,19 +367,21 @@ export class OpenAIChatEngine implements IChatEngine {
       // Accumulate tool call deltas
       if (choice.delta?.tool_calls) {
         for (const tc of choice.delta.tool_calls) {
-          const existing = toolCallAccumulator.get(tc.index);
-          if (existing) {
-            // Append to existing tool call's arguments
+          const pos = tc.index === undefined ? calls.length - 1 : byIndex.get(tc.index);
+          const existing = pos === undefined ? undefined : calls[pos];
+          if (existing && !(tc.id && existing.id && tc.id !== existing.id)) {
             if (tc.function?.arguments) {
               existing.arguments += tc.function.arguments;
             }
+            existing.extraContent ??= extraContentOf(tc);
           } else {
-            // New tool call at this index
-            toolCallAccumulator.set(tc.index, {
+            calls.push({
               id: tc.id ?? "",
               name: tc.function?.name ?? "",
               arguments: tc.function?.arguments ?? "",
+              extraContent: extraContentOf(tc),
             });
+            if (tc.index !== undefined) byIndex.set(tc.index, calls.length - 1);
           }
         }
       }
@@ -363,9 +393,7 @@ export class OpenAIChatEngine implements IChatEngine {
 
     // Convert accumulated tool calls to the expected format
     const toolCalls: FunctionToolCall[] = [];
-    for (const [, tc] of [...toolCallAccumulator.entries()].sort(
-      (a, b) => a[0] - b[0]
-    )) {
+    for (const tc of calls) {
       toolCalls.push({
         id: tc.id,
         type: "function" as const,
@@ -373,6 +401,8 @@ export class OpenAIChatEngine implements IChatEngine {
           name: tc.name,
           arguments: tc.arguments,
         },
+        // Gemini 3 rejects the next turn unless its thought signature comes back.
+        ...(tc.extraContent !== undefined ? { extra_content: tc.extraContent } : {}),
       });
     }
 
