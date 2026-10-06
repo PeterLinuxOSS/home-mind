@@ -22,14 +22,17 @@ export function isReasoningEffortUnsupported(error: unknown): boolean {
 export async function withReasoningEffort<T>(
   model: string,
   effort: ReasoningParam["reasoning_effort"],
-  send: (param: ReasoningParam) => Promise<T>
+  send: (param: ReasoningParam) => Promise<T>,
+  endpoint = ""
 ): Promise<T> {
-  if (!effort || rejectsReasoningEffort.has(model)) return send({});
+  // Two endpoints can serve the same model name with different support.
+  const key = `${endpoint} ${model}`;
+  if (!effort || rejectsReasoningEffort.has(key)) return send({});
   try {
     return await send({ reasoning_effort: effort });
   } catch (error) {
     if (!isReasoningEffortUnsupported(error)) throw error;
-    rejectsReasoningEffort.add(model);
+    rejectsReasoningEffort.add(key);
     console.info(`[llm] ${model} rejects reasoning_effort; sending without it from now on.`);
     return send({});
   }

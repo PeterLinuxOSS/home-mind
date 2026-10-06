@@ -352,6 +352,59 @@ describe("OpenAIChatEngine", () => {
     expect(mockCreate).toHaveBeenCalledTimes(2);
   });
 
+  it("does not say done when the tool failed", async () => {
+    vi.mocked(handleToolCall).mockResolvedValueOnce({ error: "light.x is not available to you" });
+    mockCreate.mockResolvedValueOnce(
+      makeStream([
+        {
+          choices: [
+            {
+              delta: {
+                tool_calls: [
+                  { index: 0, id: "call-1", function: { name: "call_service", arguments: "{}" } },
+                ],
+              },
+              finish_reason: "stop",
+            },
+          ],
+        },
+      ])
+    );
+    mockCreate.mockResolvedValueOnce(makeStream([{ choices: [{ delta: {}, finish_reason: "stop" }] }]));
+
+    const result = await engine.chat({ message: "zapni svetlo", userId: "user-1" });
+
+    expect(result.response).toBe("");
+    expect(result.error?.code).toBe("EMPTY_CONTENT");
+  });
+
+  it("does not say done over a content filter", async () => {
+    mockCreate.mockResolvedValueOnce(
+      makeStream([
+        {
+          choices: [
+            {
+              delta: {
+                tool_calls: [
+                  { index: 0, id: "call-1", function: { name: "call_service", arguments: "{}" } },
+                ],
+              },
+              finish_reason: "stop",
+            },
+          ],
+        },
+      ])
+    );
+    mockCreate.mockResolvedValueOnce(
+      makeStream([{ choices: [{ delta: {}, finish_reason: "content_filter" }] }])
+    );
+
+    const result = await engine.chat({ message: "x", userId: "user-1" });
+
+    expect(result.response).toBe("");
+    expect(result.error?.code).toBe("CONTENT_FILTERED");
+  });
+
   it("keeps the truncation error when the cap ran out after a tool call", async () => {
     mockCreate.mockResolvedValueOnce(
       makeStream([

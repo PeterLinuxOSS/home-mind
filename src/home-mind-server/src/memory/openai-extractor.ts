@@ -70,7 +70,8 @@ ${JSON.stringify(factsJson, null, 2)}`;
             ...(this.responseFormat
               ? { response_format: { type: this.responseFormat } }
               : {}),
-          })
+          }),
+          this.client.baseURL
         )
       );
 

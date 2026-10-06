@@ -141,6 +141,8 @@ export class OpenAIChatEngine implements IChatEngine {
     let result = await this.streamCompletion(messages, isVoice, onChunk);
 
     let iterations = 0;
+    // Whether every tool in the latest round succeeded; gates ACTION_DONE_REPLY.
+    let lastToolsOk = false;
     // Not finish_reason: Gemini reports "stop" on a turn that calls tools.
     while (result.toolCalls.length > 0) {
       iterations++;
@@ -170,26 +172,35 @@ export class OpenAIChatEngine implements IChatEngine {
             `[tool] ${tc.function.name} got unparseable arguments: ${tc.function.arguments}`
           );
           return {
-            role: "tool" as const,
-            tool_call_id: tc.id,
-            content: JSON.stringify({
-              error:
-                `Arguments for ${tc.function.name} were not valid JSON and could not be read. ` +
-                `Call the tool again with valid JSON arguments.`,
-            }),
+            ok: false,
+            message: {
+              role: "tool" as const,
+              tool_call_id: tc.id,
+              content: JSON.stringify({
+                error:
+                  `Arguments for ${tc.function.name} were not valid JSON and could not be read. ` +
+                  `Call the tool again with valid JSON arguments.`,
+              }),
+            },
           };
         }
 
         const toolResult = await handleToolCall(this.ha, tc.function.name, args, toolCtx);
+        const failed =
+          typeof toolResult === "object" && toolResult !== null && "error" in toolResult;
         return {
-          role: "tool" as const,
-          tool_call_id: tc.id,
-          content: JSON.stringify(toolResult, null, 2),
+          ok: !failed,
+          message: {
+            role: "tool" as const,
+            tool_call_id: tc.id,
+            content: JSON.stringify(toolResult, null, 2),
+          },
         };
       });
 
       const toolResults = await Promise.all(toolPromises);
-      messages.push(...toolResults);
+      lastToolsOk = toolResults.every((t) => t.ok);
+      messages.push(...toolResults.map((t) => t.message));
 
       // Continue streaming. On the final allowed iteration, disable tool calling
       // so the model has to answer in words rather than loop again.
@@ -205,12 +216,13 @@ export class OpenAIChatEngine implements IChatEngine {
 
     // Gemini often ends a turn after a successful tool call without a word; a
     // fixed reply is a round-trip faster than asking the model again.
-    // A cap hit is not silence: keep that diagnosis instead of covering it.
+    // Only after a normal stop following tools that all succeeded: a failed
+    // tool, a cap hit or a content filter keeps its own diagnosis.
     if (
       result.text === "" &&
       result.toolCalls.length === 0 &&
-      toolsUsed.length > 0 &&
-      result.finishReason !== "length"
+      lastToolsOk &&
+      result.finishReason === "stop"
     ) {
       result = { ...result, text: this.config.actionDoneReply };
       onChunk?.(result.text);
@@ -332,7 +344,8 @@ export class OpenAIChatEngine implements IChatEngine {
           // usage at all, which is why a cap being spent entirely on reasoning
           // looked identical to a prompt being too large.
           stream_options: { include_usage: true },
-        })
+        }),
+        this.client.baseURL
       )
     );
 

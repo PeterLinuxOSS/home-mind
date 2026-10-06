@@ -23,6 +23,7 @@ describe("loadConfig", () => {
     delete process.env.OPENAI_BASE_URL;
     delete process.env.OLLAMA_BASE_URL;
     delete process.env.REASONING_EFFORT;
+    delete process.env.ACTION_DONE_REPLY;
     delete process.env.HA_URL;
     delete process.env.HA_TOKEN;
     delete process.env.HA_SKIP_TLS_VERIFY;
@@ -246,6 +247,26 @@ describe("loadConfig", () => {
     const config = await loadConfigFresh();
 
     expect(config.ollamaBaseUrl).toBeUndefined();
+  });
+
+  it("defaults ACTION_DONE_REPLY to Done. and reads an override", async () => {
+    Object.assign(process.env, BASE_ENV);
+    expect((await loadConfigFresh()).actionDoneReply).toBe("Done.");
+
+    process.env.ACTION_DONE_REPLY = "Hotovo.";
+    expect((await loadConfigFresh()).actionDoneReply).toBe("Hotovo.");
+  });
+
+  it("rejects an unknown REASONING_EFFORT", async () => {
+    Object.assign(process.env, BASE_ENV);
+    process.env.REASONING_EFFORT = "extreme";
+    const exit = vi.spyOn(process, "exit").mockImplementation((() => {
+      throw new Error("exit");
+    }) as never);
+    vi.spyOn(console, "error").mockImplementation(() => {});
+
+    await expect(loadConfigFresh()).rejects.toThrow("exit");
+    expect(exit).toHaveBeenCalledWith(1);
   });
 
   it("reads REASONING_EFFORT", async () => {

@@ -25,6 +25,16 @@ describe("withReasoningEffort", () => {
     expect(send.mock.calls[2]).toEqual([{}]);
   });
 
+  it("remembers a rejection per endpoint, not per model name alone", async () => {
+    vi.spyOn(console, "info").mockImplementation(() => {});
+    const strict = vi.fn().mockRejectedValueOnce(rejection).mockResolvedValue("ok");
+    await withReasoningEffort("m", "low", strict, "https://a/v1");
+
+    const other = vi.fn().mockResolvedValue("ok");
+    await withReasoningEffort("m", "low", other, "https://b/v1");
+    expect(other).toHaveBeenCalledWith({ reasoning_effort: "low" });
+  });
+
   it("does not swallow unrelated 400s", async () => {
     const other = Object.assign(new Error("bad tool schema"), { status: 400 });
     const send = vi.fn().mockRejectedValue(other);
