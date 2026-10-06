@@ -146,6 +146,8 @@ Server requires: `HA_URL`, `HA_TOKEN`, `SHODH_URL`, `SHODH_API_KEY`, plus the AP
 
 LLM config:
 - `LLM_PROVIDER` — `anthropic` (default), `openai`, or `ollama`
+- `REASONING_EFFORT` — optional `none|minimal|low|medium|high`, sent as `reasoning_effort` on OpenAI-compatible calls (chat and extraction). A model that rejects the parameter with a 400 is remembered and gets it no more, so one setting is safe across models
+- `ACTION_DONE_REPLY` — what the OpenAI engine answers when the model ran tools but wrote nothing (Gemini often does); default `Done.`, set it in the user's language
 - `LLM_MODEL` — model ID (default: `claude-haiku-4-5-20251001`; must be set explicitly for Ollama)
 - `ANTHROPIC_API_KEY` — required when `LLM_PROVIDER=anthropic`
 - `OPENAI_API_KEY` — required when `LLM_PROVIDER=openai`
@@ -159,6 +161,8 @@ Optional: `PORT` (default 3100), `API_TOKEN` (bearer token for auth — when set
 ### OpenAI-Compatible Endpoint Compatibility
 
 The server works against any OpenAI-compatible endpoint: set `LLM_PROVIDER=openai` + `OPENAI_BASE_URL=<endpoint>/v1` + `OPENAI_API_KEY=<key>`. It doesn't know or care what's on the other end — OpenRouter, a local shim, LM Studio, a gateway. This is by design and is what keeps this repo model-agnostic.
+
+Google Gemini is one such endpoint: `LLM_PROVIDER=openai`, `OPENAI_BASE_URL=https://generativelanguage.googleapis.com/v1beta/openai/`, `OPENAI_API_KEY=<AI Studio key>`, `LLM_MODEL=gemini-3.5-flash-lite`, `OPENAI_RESPONSE_FORMAT=json_object`, `REASONING_EFFORT=low`. The engine copes with the ways its stream departs from OpenAI's, none of which raise an error on their own: a tool-calling turn that ends with `finish_reason: "stop"` (the loop runs whatever tool calls arrived), parallel calls that each come whole with their own `id` and no `index` (a new id opens a new call), the `extra_content` thought signature Gemini 3 requires back on the next turn (passed through untouched), and a turn that ends in silence after a successful tool call (`ACTION_DONE_REPLY`).
 
 > Historical note: this section used to describe a metering proxy for the paid product. That proxy was retired and nothing in this repo ever depended on it. Nothing here should grow provider-, tier-, or preset-specific logic either — this repo is model-agnostic by design, and how the paid product is powered is deliberately not its concern. See `PRODUCT_SEPARATION.md` in the project hub for the specifics.
 

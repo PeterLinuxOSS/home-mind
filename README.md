@@ -24,7 +24,7 @@ Home Mind provides:
 - **Learning** from corrections and user preferences
 - **Forgetting on request.** "forget that my canary word is bumblebee"; it quotes the exact memory back and waits for your yes
 - **Voice control** via HA Assist (Wyoming protocol)
-- **Multi-LLM support.** Anthropic (Claude), OpenAI, or Ollama (local inference)
+- **Multi-LLM support.** Anthropic (Claude), OpenAI, Ollama (local inference), or any OpenAI-compatible endpoint such as Google Gemini
 - **Home Layout Index.** Reads your HA floor/room assignments and injects them into every prompt, so the AI always knows which floor a device is on
 - **Device Capability Index.** Pre-scans your lights at startup so the AI always uses the right color params on the first try
 - **Self-hosted** and privacy-focused
@@ -128,7 +128,7 @@ Full option reference: [`home_mind/DOCS.md`](home_mind/DOCS.md).
 
 - **Docker & Docker Compose** - [Install Docker](https://docs.docker.com/engine/install/) or run `curl -fsSL https://get.docker.com | sh`
 - **Home Assistant** with a [long-lived access token](https://developers.home-assistant.io/docs/auth_api/#long-lived-access-token)
-- **LLM API key.** [Anthropic](https://console.anthropic.com/) (default), [OpenAI](https://platform.openai.com/), or [Ollama](https://ollama.com/) (local, no API key needed)
+- **LLM API key.** [Anthropic](https://console.anthropic.com/) (default), [OpenAI](https://platform.openai.com/), [Google Gemini](https://aistudio.google.com/apikey), or [Ollama](https://ollama.com/) (local, no API key needed)
 
 ### 1. Clone and Configure
 
@@ -143,6 +143,7 @@ Edit `.env` with your credentials:
 # LLM provider (default: anthropic, also supports: openai, ollama)
 ANTHROPIC_API_KEY=sk-ant-api03-...
 # Or for OpenAI: LLM_PROVIDER=openai and OPENAI_API_KEY=sk-...
+# Or for Gemini: LLM_PROVIDER=openai, OPENAI_BASE_URL=https://generativelanguage.googleapis.com/v1beta/openai/, OPENAI_API_KEY=... and LLM_MODEL=gemini-3.5-flash-lite (see .env.example)
 # Or for Ollama: LLM_PROVIDER=ollama and LLM_MODEL=qwen2.5:14b (14B+ recommended, see Troubleshooting)
 HA_URL=https://your-ha-instance:8123
 HA_TOKEN=your-long-lived-access-token

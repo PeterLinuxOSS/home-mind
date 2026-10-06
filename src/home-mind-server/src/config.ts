@@ -10,6 +10,9 @@ const ConfigSchema = z
     llmProvider: z.enum(["anthropic", "openai", "ollama"]).default("anthropic"),
     llmModel: z.string().default("claude-haiku-4-5-20251001"),
     anthropicApiKey: z.string().optional(),
+    // OpenAI-compatible `reasoning_effort`. Thinking models (Gemini 3, GPT-5)
+    // count it against the output cap, so voice turns want it low.
+    reasoningEffort: z.enum(["none", "minimal", "low", "medium", "high"]).optional(),
     openaiApiKey: z.string().optional(),
     openaiBaseUrl: z.string().url().optional(),
 
@@ -42,6 +45,9 @@ const ConfigSchema = z
     // Conversation history
     conversationStorage: z.enum(["memory", "sqlite"]).default("memory"),
     conversationDbPath: z.string().default("/data/conversations.db"),
+
+    // Said when the model runs tools but writes no answer (Gemini does this).
+    actionDoneReply: z.string().default("Done."),
 
     // Custom prompt
     customPrompt: z.string().optional(),
@@ -118,6 +124,7 @@ export function loadConfig(): Config {
     llmProvider: emptyToUndefined(process.env.LLM_PROVIDER),
     llmModel: emptyToUndefined(process.env.LLM_MODEL),
     anthropicApiKey: emptyToUndefined(process.env.ANTHROPIC_API_KEY),
+    reasoningEffort: emptyToUndefined(process.env.REASONING_EFFORT),
     openaiApiKey: emptyToUndefined(process.env.OPENAI_API_KEY),
     openaiBaseUrl: emptyToUndefined(process.env.OPENAI_BASE_URL),
     openaiResponseFormat: emptyToUndefined(process.env.OPENAI_RESPONSE_FORMAT),
@@ -133,6 +140,7 @@ export function loadConfig(): Config {
     conversationStorage: emptyToUndefined(process.env.CONVERSATION_STORAGE),
     conversationDbPath: emptyToUndefined(process.env.CONVERSATION_DB_PATH),
     customPrompt: emptyToUndefined(process.env.CUSTOM_PROMPT),
+    actionDoneReply: emptyToUndefined(process.env.ACTION_DONE_REPLY),
     maxOutputTokens: emptyToUndefined(process.env.MAX_OUTPUT_TOKENS),
     deviceOverrides: emptyToUndefined(process.env.DEVICE_OVERRIDES),
     layoutDomains: emptyToUndefined(process.env.LAYOUT_DOMAINS),
