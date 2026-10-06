@@ -61,6 +61,8 @@ Finally set Home Mind as the conversation agent under
 | `custom_prompt` | — | Extra system prompt. Gives the assistant a name and personality. |
 | `max_output_tokens` | — | How much room one written answer gets, in tokens. Leave it empty and Home Mind chooses. Raise it if long answers stop before they finish, which is most likely when you ask about several sensors at once or over a long period. Spoken answers are not affected. |
 | `device_overrides` | — | JSON of per-entity light capability overrides, e.g. `{"light.kitchen": {"whiteMethod": "rgb_white"}}`. Use when a light reports the wrong colour modes. |
+| `layout_from_exposed` | on | Build the home layout from the entities exposed to Assist (Settings, Voice assistants, Expose). Off filters by device type instead. |
+| `tools_from_exposed` | on | The assistant can read and control only the entities exposed to Assist, like Home Assistant's own agent. Turn off to let it reach every entity in the house. |
 | `memory_token_limit` | `3000` | Maximum tokens of recalled memory injected into a prompt. |
 | `memory_cleanup_interval_hours` | `6` | How often faded memories are pruned. `0` disables it. |
 | `conversation_storage` | `sqlite` | `sqlite` keeps conversation history across restarts in `/data`, `memory` forgets it. |

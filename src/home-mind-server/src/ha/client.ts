@@ -40,12 +40,21 @@ export interface ServiceCallWithResponse {
   service_response: unknown;
 }
 
-/** The entity IDs a service call targets; HA accepts one or a list. */
+/** The entity IDs a service call targets; HA accepts one, a list, or "a, b". */
 function targetedEntities(target: unknown): string[] {
-  if (typeof target === "string") return [target];
-  if (Array.isArray(target)) return target.filter((t): t is string => typeof t === "string");
-  return [];
+  const ids = typeof target === "string" ? [target] : Array.isArray(target) ? target : [];
+  return ids
+    .filter((t): t is string => typeof t === "string")
+    .flatMap((t) => t.split(","))
+    .map((t) => t.trim())
+    .filter((t) => t !== "");
 }
+
+/** Targets that select entities indirectly, which the exposure list cannot vet. */
+const INDIRECT_TARGETS = ["area_id", "device_id", "floor_id", "label_id"] as const;
+
+/** Lifecycle services of the script domain; any other `script.X` runs script X. */
+const SCRIPT_LIFECYCLE = new Set(["turn_on", "turn_off", "toggle", "reload"]);
 
 export class HomeAssistantClient {
   private baseUrl: string;
@@ -89,6 +98,37 @@ export class HomeAssistantClient {
     for (const id of entityIds) {
       if (!(await this.exposure.allows(id))) throw new Error(notExposedMessage(id));
     }
+  }
+
+  /**
+   * Refuses a service call that would reach past the exposure list.
+   *
+   * Named entities are checked one by one, including a nested `target`. Area,
+   * device, floor and label targets would need resolving to know what they
+   * hit, so with an opinionated list they are refused and the model is told
+   * to name entities. A call with no target at all touches no entity in
+   * current Home Assistant, except `script.<name>`, which runs that script.
+   */
+  private async requireExposedTargets(
+    domain: string,
+    service: string,
+    payload: Record<string, unknown>
+  ): Promise<void> {
+    if (!this.exposure || (await this.exposure.list()) === null) return;
+    const nested =
+      payload.target && typeof payload.target === "object"
+        ? (payload.target as Record<string, unknown>)
+        : {};
+    const indirect = INDIRECT_TARGETS.find((k) => payload[k] !== undefined || nested[k] !== undefined);
+    if (indirect) {
+      throw new Error(
+        `Targeting by ${indirect} is not available to you: only entities the user exposed to the ` +
+          `assistant may be controlled. Call the service with the exposed entity_ids instead.`
+      );
+    }
+    const ids = [...targetedEntities(payload.entity_id), ...targetedEntities(nested.entity_id)];
+    if (domain === "script" && !SCRIPT_LIFECYCLE.has(service)) ids.push(`script.${service}`);
+    await this.requireExposed(...ids);
   }
 
   /**
@@ -275,9 +315,8 @@ export class HomeAssistantClient {
 
     // Every entity this call would touch, whether named in `entityId` or
     // handed in through `data` — a model that has been told an entity is out of
-    // scope will otherwise try the other door. Area and label targets are not
-    // resolved here, so they are still as wide as the token allows.
-    await this.requireExposed(...targetedEntities(payload.entity_id));
+    // scope will otherwise try the other door.
+    await this.requireExposedTargets(domain, service, payload);
 
     const support = await this.getServiceResponseSupport(domain, service);
     const wantResponse =

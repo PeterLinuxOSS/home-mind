@@ -249,6 +249,49 @@ describe("HomeAssistantClient and the Assist exposure list", () => {
     ).rejects.toThrow(/kitchen_table_2/);
   });
 
+  it("call_service splits a comma-separated entity_id", async () => {
+    const client = new HomeAssistantClient(baseConfig, exposing("light.kitchen_table"));
+    await expect(
+      client.callService("light", "turn_on", "light.kitchen_table, light.kitchen_table_2")
+    ).rejects.toThrow(/kitchen_table_2/);
+  });
+
+  it("call_service refuses area, device, floor and label targets, nested or not", async () => {
+    const client = new HomeAssistantClient(baseConfig, exposing("light.kitchen_table"));
+    await expect(
+      client.callService("light", "turn_off", undefined, { area_id: "kitchen" })
+    ).rejects.toThrow(/area_id is not available/);
+    await expect(
+      client.callService("light", "turn_off", undefined, { target: { label_id: "all_lights" } })
+    ).rejects.toThrow(/label_id is not available/);
+    await expect(
+      client.callService("light", "turn_off", undefined, {
+        target: { entity_id: "light.kitchen_table_2" },
+      })
+    ).rejects.toThrow(/kitchen_table_2/);
+    expect(calls.some((u) => u.includes("/api/services/light/turn_off"))).toBe(false);
+  });
+
+  it("call_service refuses entity_id all", async () => {
+    const client = new HomeAssistantClient(baseConfig, exposing("light.kitchen_table"));
+    await expect(client.callService("light", "turn_off", "all")).rejects.toThrow(/not available/);
+  });
+
+  it("script.<name> needs that script exposed; a call without a target passes", async () => {
+    const client = new HomeAssistantClient(baseConfig, exposing("light.kitchen_table", "script.good_night"));
+    await expect(client.callService("script", "garage_door")).rejects.toThrow(/script\.garage_door/);
+    await client.callService("script", "good_night");
+    await client.callService("notify", "notify", undefined, { message: "hi" });
+    expect(calls.some((u) => u.includes("/api/services/script/garage_door"))).toBe(false);
+    expect(calls.some((u) => u.includes("/api/services/script/good_night"))).toBe(true);
+  });
+
+  it("indirect targets pass when the list has no opinion", async () => {
+    const client = new HomeAssistantClient(baseConfig, new AssistExposure(async () => null));
+    await client.callService("light", "turn_off", undefined, { area_id: "kitchen" });
+    expect(calls.some((u) => u.includes("/api/services/light/turn_off"))).toBe(true);
+  });
+
   it("lets an exposed entity through untouched", async () => {
     const client = new HomeAssistantClient(baseConfig, exposing("light.kitchen_table"));
     expect((await client.getState("light.kitchen_table")).state).toBe("on");

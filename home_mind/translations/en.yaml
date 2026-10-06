@@ -30,6 +30,17 @@ configuration:
     description: >-
       Added to the system prompt. Use it to give the assistant a name and a
       personality.
+  layout_from_exposed:
+    name: Layout from exposed entities
+    description: >-
+      Build the home layout sent with every request from the entities exposed
+      to Assist. Off filters by device type instead. Default on.
+  tools_from_exposed:
+    name: Tools limited to exposed entities
+    description: >-
+      The assistant can read and control only the entities exposed to Assist,
+      like Home Assistant's own agent. Off lets it reach the whole house.
+      Default on.
   max_output_tokens:
     name: Maximum answer length
     description: >-
