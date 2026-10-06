@@ -274,7 +274,7 @@ describe("HomeAssistantClient and the Assist exposure list", () => {
 
   it("call_service refuses entity_id all", async () => {
     const client = new HomeAssistantClient(baseConfig, exposing("light.kitchen_table"));
-    await expect(client.callService("light", "turn_off", "all")).rejects.toThrow(/not available/);
+    await expect(client.callService("light", "turn_off", "all")).rejects.toThrow(/entity_id "all"/);
   });
 
   it("script.<name> needs that script exposed; a call without a target passes", async () => {

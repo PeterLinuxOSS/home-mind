@@ -127,6 +127,12 @@ export class HomeAssistantClient {
       );
     }
     const ids = [...targetedEntities(payload.entity_id), ...targetedEntities(nested.entity_id)];
+    if (ids.includes("all")) {
+      throw new Error(
+        `entity_id "all" is not available to you: it reaches entities the user has not exposed. ` +
+          `Call the service with the exposed entity_ids instead.`
+      );
+    }
     if (domain === "script" && !SCRIPT_LIFECYCLE.has(service)) ids.push(`script.${service}`);
     await this.requireExposed(...ids);
   }

@@ -14,6 +14,20 @@ export_option() {
     fi
 }
 
+# Export a boolean option as the literal true/false whenever it is set, so
+# turning one off reaches the server instead of falling back to its default.
+export_bool() {
+    local option="${1}"
+    local variable="${2}"
+    if bashio::config.exists "${option}"; then
+        if bashio::config.true "${option}"; then
+            export "${variable}=true"
+        else
+            export "${variable}=false"
+        fi
+    fi
+}
+
 # Fail before the wait below, so a missing key is reported straight away.
 case "$(bashio::config 'llm_provider')" in
     anthropic)
@@ -74,8 +88,8 @@ export_option 'ollama_base_url' 'OLLAMA_BASE_URL'
 export_option 'custom_prompt' 'CUSTOM_PROMPT'
 export_option 'max_output_tokens' 'MAX_OUTPUT_TOKENS'
 export_option 'device_overrides' 'DEVICE_OVERRIDES'
-export_option 'layout_from_exposed' 'LAYOUT_FROM_EXPOSED'
-export_option 'tools_from_exposed' 'TOOLS_FROM_EXPOSED'
+export_bool 'layout_from_exposed' 'LAYOUT_FROM_EXPOSED'
+export_bool 'tools_from_exposed' 'TOOLS_FROM_EXPOSED'
 export_option 'api_token' 'API_TOKEN'
 export_option 'cors_origins' 'CORS_ORIGINS'
 export_option 'stt_api_key' 'STT_API_KEY'
