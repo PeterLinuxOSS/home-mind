@@ -31,7 +31,7 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
   {
     name: "get_entities",
     description:
-      "List all Home Assistant entities, optionally filtered by domain (light, sensor, switch, etc.)",
+      "List the Home Assistant entities available to you, optionally filtered by domain (light, sensor, switch, etc.). Entities the user has not exposed to the assistant are not listed and cannot be used.",
     parameters: {
       type: "object",
       properties: {

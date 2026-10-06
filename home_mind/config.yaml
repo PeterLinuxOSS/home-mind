@@ -57,6 +57,9 @@ schema:
   # existing install being pinned to today's number.
   max_output_tokens: int(256,32768)?
   device_overrides: str?
+  # What the assistant may see. Unset means the server default (true).
+  layout_from_exposed: bool?
+  tools_from_exposed: bool?
   memory_token_limit: int(100,)
   memory_cleanup_interval_hours: int(0,)
   conversation_storage: list(sqlite|memory)
