@@ -1,6 +1,6 @@
 ---
 name: Home Mind
-version: "0.18.1"
+version: "0.19.0"
 slug: home_mind
 description: >-
   AI assistant with cognitive memory for Home Assistant. Remembers your
@@ -37,6 +37,8 @@ options:
   openai_model: gpt-4.1-mini
   gemini_api_key: ""
   gemini_model: gemini-3.5-flash-lite
+  meta_api_key: ""
+  meta_model: muse-ember-1.0
   log_level: info
   conversation_storage: sqlite
   layout_domains: ""
@@ -48,12 +50,14 @@ options:
   tts_voice: alloy
 schema:
   # LLM provider
-  llm_provider: list(anthropic|openai|ollama|gemini)
+  llm_provider: list(anthropic|openai|ollama|gemini|meta)
   llm_model: str?
   anthropic_api_key: password?
   anthropic_model: list(claude-haiku-4-5-20251001|claude-sonnet-4-6|claude-sonnet-5|claude-opus-4-8|claude-opus-5|claude-opus-5-5|claude-fable-5|claude-fable-5-1)?
   gemini_api_key: password?
   gemini_model: list(gemini-3.5-flash-lite|gemini-3.5-flash|gemini-3.6-flash|gemini-3.7-flash|gemini-3.8-flash)?
+  meta_api_key: password?
+  meta_model: list(muse-ember-1.0|muse-spark-1.3|muse-spark-1.2|muse-wonder-1.0)?
   reasoning_effort: list(none|minimal|low|medium|high)?
   openai_api_key: password?
   openai_model: list(gpt-4.1-nano|gpt-4.1-mini|gpt-5.4-nano|gpt-5.4-mini|gpt-5.4|gpt-5.5)?

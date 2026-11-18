@@ -19,6 +19,15 @@ configuration:
     description: >-
       Model for the Gemini provider. 3.5 Flash-Lite answers fastest, 3.8 Flash
       is the smartest. A model typed under Model takes precedence.
+  meta_api_key:
+    name: Meta API key
+    description: Required for the Meta provider. Create one at the Meta AI developer console.
+  meta_model:
+    name: Meta model
+    description: >-
+      Model for the Meta provider (api.meta.ai). Muse Ember is the fast, cheap one
+      and scores highest on the Home LLM Leaderboard. Set reasoning effort to
+      minimal for voice — Ember does not accept none.
   reasoning_effort:
     name: Reasoning effort
     description: >-

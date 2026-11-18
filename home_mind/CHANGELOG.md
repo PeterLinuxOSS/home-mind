@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.19.0
+
+- New `meta` provider: Meta's own API (`api.meta.ai`), OpenAI-compatible, so it
+  runs on the existing OpenAI engine. `meta_model` picks the Muse model; Muse
+  Ember is the default. Use `reasoning_effort: minimal` with it.
+
 ## 0.18.1
 
 - `anthropic_model` lists every current Claude model: Haiku 4.5, Sonnet 4.6

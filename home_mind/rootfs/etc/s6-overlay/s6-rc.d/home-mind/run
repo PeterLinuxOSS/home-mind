@@ -28,6 +28,10 @@ case "$(bashio::config 'llm_provider')" in
         bashio::config.require 'gemini_api_key' \
             "The Gemini provider needs an API key from https://aistudio.google.com/apikey"
         ;;
+    meta)
+        bashio::config.require 'meta_api_key' \
+            "The Meta provider needs an API key from the Meta AI developer console"
+        ;;
     ollama)
         bashio::config.require 'ollama_base_url' \
             "The Ollama provider needs the base URL of your Ollama server, for example http://192.168.1.10:11434/v1"
@@ -85,6 +89,13 @@ export_option 'openai_api_key' 'OPENAI_API_KEY'
 export_option 'openai_base_url' 'OPENAI_BASE_URL'
 export_option 'openai_max_tokens' 'OPENAI_MAX_TOKENS'
 export_option 'ollama_base_url' 'OLLAMA_BASE_URL'
+# Meta's API is OpenAI-compatible, so it runs on the OpenAI engine.
+if [[ "${LLM_PROVIDER}" == "meta" ]]; then
+    export LLM_PROVIDER="openai"
+    export OPENAI_API_KEY="$(bashio::config 'meta_api_key')"
+    export OPENAI_BASE_URL="https://api.meta.ai/v1"
+    bashio::config.has_value 'llm_model' || export_option 'meta_model' 'LLM_MODEL'
+fi
 export_option 'custom_prompt' 'CUSTOM_PROMPT'
 export_option 'action_done_reply' 'ACTION_DONE_REPLY'
 export_option 'device_overrides' 'DEVICE_OVERRIDES'
