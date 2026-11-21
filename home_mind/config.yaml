@@ -1,6 +1,6 @@
 ---
 name: Home Mind
-version: "0.19.0"
+version: "0.20.0"
 slug: home_mind
 description: >-
   AI assistant with cognitive memory for Home Assistant. Remembers your
@@ -67,6 +67,7 @@ schema:
   # Behaviour
   custom_prompt: str?
   action_done_reply: str?
+  require_tool_call: bool?
   device_overrides: str?
   layout_domains: str?
   memory_token_limit: int(100,)

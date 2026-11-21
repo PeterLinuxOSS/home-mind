@@ -98,6 +98,7 @@ if [[ "${LLM_PROVIDER}" == "meta" ]]; then
 fi
 export_option 'custom_prompt' 'CUSTOM_PROMPT'
 export_option 'action_done_reply' 'ACTION_DONE_REPLY'
+export_option 'require_tool_call' 'REQUIRE_TOOL_CALL'
 export_option 'device_overrides' 'DEVICE_OVERRIDES'
 export_option 'layout_domains' 'LAYOUT_DOMAINS'
 export_option 'api_token' 'API_TOKEN'

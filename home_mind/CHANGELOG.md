@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.20.0
+
+Server built from `gemini-8`.
+
+- New `require_tool_call` option. The model must call a tool every turn and
+  speaks through a `reply` tool, so it can no longer say "Turning on the
+  bath." without turning it on. Gemini Flash-Lite did that on 0–70 % of
+  turns depending on the sentence; with the option, 54 of 54. Off by
+  default.
+
 ## 0.19.0
 
 - New `meta` provider: Meta's own API (`api.meta.ai`), OpenAI-compatible, so it
