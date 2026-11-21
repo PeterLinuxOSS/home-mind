@@ -352,6 +352,100 @@ describe("OpenAIChatEngine", () => {
     expect(mockCreate).toHaveBeenCalledTimes(2);
   });
 
+  describe("requireToolCall", () => {
+    const toolStream = (name: string, args: string) =>
+      makeStream([
+        {
+          choices: [
+            {
+              delta: { tool_calls: [{ index: 0, id: `c-${name}`, function: { name, arguments: args } }] },
+              finish_reason: "stop",
+            },
+          ],
+        },
+      ]);
+
+    it("forces a tool call and offers the reply tool", async () => {
+      config.requireToolCall = true;
+      mockCreate.mockResolvedValueOnce(toolStream("reply", '{"text":"Nemáš zač."}'));
+
+      await engine.chat({ message: "ďakujem", userId: "user-1" });
+
+      const req = mockCreate.mock.calls[0][0];
+      expect(req.tool_choice).toBe("required");
+      expect(req.tools.map((t: { function: { name: string } }) => t.function.name)).toContain("reply");
+    });
+
+    it("takes a lone reply as the answer without another round", async () => {
+      config.requireToolCall = true;
+      mockCreate.mockResolvedValueOnce(toolStream("reply", '{"text":"Nemáš zač."}'));
+
+      const chunks: string[] = [];
+      const result = await engine.chat({ message: "ďakujem", userId: "user-1" }, (c) => chunks.push(c));
+
+      expect(result.response).toBe("Nemáš zač.");
+      expect(result.toolsUsed).toEqual([]);
+      expect(chunks).toEqual(["Nemáš zač."]);
+      expect(mockCreate).toHaveBeenCalledTimes(1);
+      expect(handleToolCall).not.toHaveBeenCalled();
+    });
+
+    it("runs the action, then ends on the reply", async () => {
+      config.requireToolCall = true;
+      mockCreate.mockResolvedValueOnce(
+        toolStream("call_service", '{"domain":"switch","service":"turn_on","entity_id":"switch.vana_spa"}')
+      );
+      mockCreate.mockResolvedValueOnce(toolStream("reply", '{"text":"Zapol som vaňu."}'));
+
+      const result = await engine.chat({ message: "zapni vaňu", userId: "user-1" });
+
+      expect(handleToolCall).toHaveBeenCalledTimes(1);
+      expect(result.toolsUsed).toEqual(["call_service"]);
+      expect(result.response).toBe("Zapol som vaňu.");
+      expect(mockCreate.mock.calls[1][0].tool_choice).toBe("required");
+    });
+
+    it("acknowledges a reply sent next to an action instead of executing it", async () => {
+      config.requireToolCall = true;
+      mockCreate.mockResolvedValueOnce(
+        makeStream([
+          {
+            choices: [
+              {
+                delta: {
+                  tool_calls: [
+                    { index: 0, id: "c-1", function: { name: "call_service", arguments: "{}" } },
+                    { index: 1, id: "c-2", function: { name: "reply", arguments: '{"text":"Hotovo."}' } },
+                  ],
+                },
+                finish_reason: "stop",
+              },
+            ],
+          },
+        ])
+      );
+      mockCreate.mockResolvedValueOnce(toolStream("reply", '{"text":"Hotovo."}'));
+
+      const result = await engine.chat({ message: "zapni", userId: "user-1" });
+
+      expect(handleToolCall).toHaveBeenCalledTimes(1);
+      expect(vi.mocked(handleToolCall).mock.calls[0][1]).toBe("call_service");
+      expect(result.response).toBe("Hotovo.");
+    });
+
+    it("leaves tool_choice and the tool list alone when off", async () => {
+      mockCreate.mockResolvedValueOnce(
+        makeStream([{ choices: [{ delta: { content: "hi" }, finish_reason: "stop" }] }])
+      );
+
+      await engine.chat({ message: "x", userId: "user-1" });
+
+      const req = mockCreate.mock.calls[0][0];
+      expect(req).not.toHaveProperty("tool_choice");
+      expect(req.tools.map((t: { function: { name: string } }) => t.function.name)).not.toContain("reply");
+    });
+  });
+
   it("keeps the empty-response error when no tool ran", async () => {
     mockCreate.mockResolvedValueOnce(makeStream([{ choices: [{ delta: {}, finish_reason: "stop" }] }]));
 

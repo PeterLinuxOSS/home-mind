@@ -60,6 +60,13 @@ const ConfigSchema = z
     // Said when the model runs tools but writes no answer (Gemini does this).
     actionDoneReply: z.string().default("Done."),
 
+    // Make every chat round call a tool; plain answers go through a `reply` tool.
+    // Stops models that announce an action in words without calling a tool.
+    requireToolCall: z
+      .string()
+      .transform((v) => v === "true")
+      .default("false"),
+
     // Custom prompt
     customPrompt: z.string().optional(),
 
@@ -160,6 +167,7 @@ export function loadConfig(): Config {
     conversationDbPath: emptyToUndefined(process.env.CONVERSATION_DB_PATH),
     customPrompt: emptyToUndefined(process.env.CUSTOM_PROMPT),
     actionDoneReply: emptyToUndefined(process.env.ACTION_DONE_REPLY),
+    requireToolCall: emptyToUndefined(process.env.REQUIRE_TOOL_CALL),
     deviceOverrides: emptyToUndefined(process.env.DEVICE_OVERRIDES),
     layoutDomains: emptyToUndefined(process.env.LAYOUT_DOMAINS),
     layoutFromExposed: emptyToUndefined(process.env.LAYOUT_FROM_EXPOSED),

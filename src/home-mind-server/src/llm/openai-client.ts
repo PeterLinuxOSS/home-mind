@@ -25,6 +25,38 @@ type FunctionToolCall = OpenAI.ChatCompletionMessageFunctionToolCall;
 const OPENAI_TOOLS = toOpenAITools(TOOL_DEFINITIONS);
 
 /**
+ * With REQUIRE_TOOL_CALL every round must call a tool, so a plain answer needs
+ * one. Small models (Gemini Flash-Lite) otherwise say "Turning on the bath."
+ * without calling call_service — measured 0–70 % depending on the prompt.
+ */
+const REPLY_TOOL_NAME = "reply";
+const REPLY_TOOL: OpenAI.ChatCompletionTool = {
+  type: "function",
+  function: {
+    name: REPLY_TOOL_NAME,
+    description:
+      "Say something to the user. Use it for the final answer after your other tools have run, " +
+      "and on its own when nothing in the home has to be read or changed (greetings, thanks, " +
+      "small talk, not understood). Never use it to announce an action you have not performed " +
+      "with call_service in this turn.",
+    parameters: {
+      type: "object",
+      properties: { text: { type: "string", description: "What to say to the user." } },
+      required: ["text"],
+    },
+  },
+};
+
+function replyText(args: string): string {
+  try {
+    const text = (JSON.parse(args || "{}") as { text?: unknown }).text;
+    return typeof text === "string" ? text.trim() : "";
+  } catch {
+    return "";
+  }
+}
+
+/**
  * Hard cap on tool round-trips per user message. A model that loops (repeatedly
  * re-searching entities, retrying a tool it misreads as failing) otherwise runs
  * until the HA integration's 120s client timeout with nothing to show for it —
@@ -128,7 +160,7 @@ export class OpenAIChatEngine implements IChatEngine {
     }
 
     // 5. Stream and handle tool call loop
-    let result = await this.streamCompletion(messages, isVoice, onChunk);
+    let result = this.takeReply(await this.streamCompletion(messages, isVoice, onChunk), onChunk);
 
     let iterations = 0;
     // Not finish_reason: Gemini reports "stop" on a turn that calls tools.
@@ -147,6 +179,14 @@ export class OpenAIChatEngine implements IChatEngine {
 
       // Execute all tool calls in parallel
       const toolPromises = result.toolCalls.map(async (tc: FunctionToolCall) => {
+        // A reply next to real calls: the model says the final answer once they ran.
+        if (tc.function.name === REPLY_TOOL_NAME) {
+          return {
+            role: "tool" as const,
+            tool_call_id: tc.id,
+            content: JSON.stringify({ ok: true, note: "Answer again after the other tools ran." }),
+          };
+        }
         toolsUsed.push(tc.function.name);
 
         // Small local models routinely emit truncated or non-JSON arguments.
@@ -189,7 +229,10 @@ export class OpenAIChatEngine implements IChatEngine {
           `[llm] tool loop hit ${MAX_TOOL_ITERATIONS} iterations — forcing a final answer`
         );
       }
-      result = await this.streamCompletion(messages, isVoice, onChunk, forceAnswer);
+      result = this.takeReply(
+        await this.streamCompletion(messages, isVoice, onChunk, forceAnswer),
+        onChunk
+      );
       if (forceAnswer) break;
     }
 
@@ -231,6 +274,20 @@ export class OpenAIChatEngine implements IChatEngine {
       factsLearned: 0,
       ...(error ? { error } : {}),
     };
+  }
+
+  /** A round whose only calls are `reply` is the final answer, not a tool round. */
+  private takeReply<T extends { text: string; toolCalls: FunctionToolCall[] }>(
+    result: T,
+    onChunk?: StreamCallback
+  ): T {
+    const calls = result.toolCalls;
+    if (calls.length === 0 || calls.some((tc) => tc.function.name !== REPLY_TOOL_NAME)) {
+      return result;
+    }
+    const said = calls.map((tc) => replyText(tc.function.arguments)).filter(Boolean).join(" ");
+    if (said) onChunk?.(result.text ? ` ${said}` : said);
+    return { ...result, text: [result.text, said].filter(Boolean).join(" "), toolCalls: [] };
   }
 
   private classifyEmptyResponse(finishReason: string | null): ChatError {
@@ -287,10 +344,14 @@ export class OpenAIChatEngine implements IChatEngine {
             ...cap,
             ...reasoning,
             messages,
-            tools: OPENAI_TOOLS,
+            tools: this.config.requireToolCall ? [...OPENAI_TOOLS, REPLY_TOOL] : OPENAI_TOOLS,
             // Keep the tool list in the request (history already references it) but
             // stop the model from issuing more calls.
-            ...(disableTools ? { tool_choice: "none" as const } : {}),
+            ...(disableTools
+              ? { tool_choice: "none" as const }
+              : this.config.requireToolCall
+                ? { tool_choice: "required" as const }
+                : {}),
             stream: true,
           })
         )
